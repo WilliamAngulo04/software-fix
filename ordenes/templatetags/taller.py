@@ -1,4 +1,7 @@
 from django import template
+from django.utils.safestring import mark_safe
+
+from clientes import patron
 
 register = template.Library()
 
@@ -27,6 +30,14 @@ def dinero(valor):
     texto = f'{entero:,}'.replace(',', '.')
     decimales = int(round((valor - entero) * 100))
     return f'${texto},{decimales:02d}' if decimales else f'${texto}'
+
+
+@register.filter
+def patron_svg(valor, tamano=120):
+    """Dibujo del patrón de desbloqueo guardado (ej. "14789")."""
+    if not valor or not str(valor).isdigit():
+        return ''
+    return mark_safe(patron.svg(str(valor), int(tamano)))
 
 
 @register.simple_tag(takes_context=True)

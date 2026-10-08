@@ -2,6 +2,7 @@ from django import forms
 
 from config.estilos import BootstrapMixin
 
+from . import patron
 from .models import Cliente, Equipo
 
 
@@ -27,4 +28,12 @@ class ClienteForm(BootstrapMixin, forms.ModelForm):
 class EquipoForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Equipo
-        fields = ['tipo_dispositivo', 'marca', 'modelo', 'numero_serie_imei', 'clave_patron']
+        fields = ['tipo_dispositivo', 'marca', 'modelo', 'numero_serie_imei', 'clave_patron', 'patron']
+        widgets = {'patron': patron.PatronInput()}
+        help_texts = {
+            'clave_patron': 'PIN o contraseña de desbloqueo, si tiene.',
+            'patron': 'Si el equipo se desbloquea con patrón, dibújalo aquí.',
+        }
+
+    def clean_patron(self):
+        return patron.validar(self.cleaned_data.get('patron'))

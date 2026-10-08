@@ -25,13 +25,14 @@
   <div class="card-header bg-transparent fw-semibold">Equipos</div>
   <div class="table-responsive">
     <table class="table mb-0">
-      <thead><tr><th>Equipo</th><th>Serie / IMEI</th><th>Clave / patrón</th><th></th></tr></thead>
+      <thead><tr><th>Equipo</th><th>Serie / IMEI</th><th>Clave / PIN</th><th>Patrón</th><th></th></tr></thead>
       <tbody>
       {% for e in equipos %}
         <tr>
           <td class="fw-semibold">{{ e }}</td>
           <td>{{ e.numero_serie_imei|default:"—" }}</td>
           <td>{{ e.clave_patron|default:"—" }}</td>
+          <td>{% if e.patron %}{{ e.patron|patron_svg:60 }}{% else %}—{% endif %}</td>
           <td class="text-end text-nowrap">
             {% if not user.es_tecnico %}
               <a href="{% url 'orden_create' %}?cliente={{ cliente.pk }}&equipo={{ e.pk }}" class="btn btn-sm btn-primary"><i class="bi bi-clipboard-plus"></i> Nueva orden</a>
@@ -40,7 +41,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="4" class="text-center text-body-secondary py-3">Este cliente no tiene equipos registrados.</td></tr>
+        <tr><td colspan="5" class="text-center text-body-secondary py-3">Este cliente no tiene equipos registrados.</td></tr>
       {% endfor %}
       </tbody>
     </table>

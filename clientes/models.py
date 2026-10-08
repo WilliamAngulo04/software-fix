@@ -39,7 +39,9 @@ class Equipo(models.Model):
     marca = models.CharField(max_length=50)
     modelo = models.CharField(max_length=50)
     numero_serie_imei = models.CharField('serie / IMEI', max_length=50, blank=True, null=True)
-    clave_patron = models.CharField('clave o patrón', max_length=100, blank=True, null=True)
+    clave_patron = models.CharField('clave / PIN', max_length=100, blank=True, null=True)
+    # Patrón de desbloqueo de 3x3 como la secuencia de puntos tocados (1-9), ej. "14789".
+    patron = models.CharField('patrón de desbloqueo', max_length=9, blank=True, null=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:

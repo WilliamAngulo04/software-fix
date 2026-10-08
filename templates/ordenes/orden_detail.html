@@ -36,7 +36,11 @@
             <div class="small text-body-secondary">Equipo</div>
             <div class="fw-semibold">{{ orden.equipo }}</div>
             <div class="small">Serie/IMEI: {{ orden.equipo.numero_serie_imei|default:"—" }}</div>
-            <div class="small">Clave/patrón: {{ orden.equipo.clave_patron|default:"—" }}</div>
+            <div class="small">Clave / PIN: {{ orden.equipo.clave_patron|default:"—" }}</div>
+            {% if orden.equipo.patron %}
+              <div class="small mt-1">Patrón:</div>
+              {{ orden.equipo.patron|patron_svg:110 }}
+            {% endif %}
           </div>
           <div class="col-sm-6 mb-3">
             <div class="small text-body-secondary">Técnico</div>

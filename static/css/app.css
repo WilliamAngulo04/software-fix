@@ -9,3 +9,14 @@
   body { background: #fff !important; }
   .card { box-shadow: none; }
 }
+
+/* Editor del patrón de desbloqueo */
+.patron-editor { max-width: 220px; }
+.patron-lienzo {
+  width: 100%; aspect-ratio: 1; background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);
+  border-radius: .5rem; touch-action: none; user-select: none; cursor: pointer;
+}
+.patron-punto { fill: var(--bs-secondary-color); transition: r .1s; }
+.patron-punto.activo { fill: var(--bs-primary); r: 20; }
+.patron-punto.inicio { stroke: var(--bs-success); stroke-width: 7; }
+.patron-trazo { fill: none; stroke: var(--bs-primary); stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; opacity: .55; }
