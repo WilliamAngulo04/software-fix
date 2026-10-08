@@ -79,7 +79,10 @@ class AislamientoTests(Base):
         self.assertNotContains(self.client.get(reverse('orden_create')), 'Beto')
 
     def test_no_accede_a_objetos_de_otro_taller(self):
+        venta2 = venta_services.registrar_venta(self.admin2, 'efectivo', [(self.producto2, 1)])
         for url in [
+            reverse('venta_detail', args=[venta2.pk]),
+            reverse('venta_recibo', args=[venta2.pk]),
             reverse('orden_detail', args=[self.orden2.pk]),
             reverse('orden_comprobante', args=[self.orden2.pk]),
             reverse('cliente_detail', args=[self.cliente2.pk]),

@@ -103,3 +103,14 @@ class VentaCreateView(RolRequeridoMixin, View):
                 messages.success(request, f'Venta #{venta.pk} registrada por ${venta.total:,.0f}.')
                 return redirect('venta_detail', pk=venta.pk)
         return self.mostrar(request, form, formset, orden)
+
+
+class VentaReciboView(VentaDetailView):
+    """Recibo para impresora térmica de 80 mm. Con ?imprimir=1 abre el diálogo de impresión."""
+
+    template_name = 'ventas/venta_recibo.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['autoimprimir'] = self.request.GET.get('imprimir') == '1'
+        return ctx

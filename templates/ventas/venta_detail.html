@@ -4,7 +4,7 @@
 {% block contenido %}
 <div class="d-print-none mb-2 d-flex justify-content-between">
   <a href="{% url 'venta_list' %}" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Ventas</a>
-  <button onclick="window.print()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Imprimir recibo</button>
+  <a href="{% url 'venta_recibo' venta.pk %}?imprimir=1" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer"></i> Imprimir recibo (80 mm)</a>
 </div>
 <div class="row justify-content-center">
   <div class="col-lg-7">

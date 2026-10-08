@@ -153,6 +153,7 @@ class VistasTests(Base):
         ]
         caja = [
             reverse('venta_list'), reverse('venta_detail', args=[venta.pk]), reverse('venta_create'),
+            reverse('venta_recibo', args=[venta.pk]) + '?imprimir=1',
             reverse('orden_create'), reverse('cliente_create'), reverse('equipo_create', args=[self.cliente.pk]),
         ]
         solo_admin = [reverse('usuario_list'), reverse('usuario_create'), reverse('producto_create')]
@@ -254,6 +255,16 @@ class VistasTests(Base):
         r = self.client.post(reverse('orden_create'), self.datos_recepcion(fotos=demasiadas))
         self.assertContains(r, 'máximo 8 fotos')
         self.assertEqual(OrdenServicio.objects.count(), antes)
+
+    def test_recibo_80mm(self):
+        venta = venta_services.registrar_venta(self.recepcion, 'efectivo', [(self.cargador, 2)])
+        self.entrar(self.recepcion)
+        r = self.client.get(reverse('venta_recibo', args=[venta.pk]))
+        self.assertContains(r, 'size: 80mm auto')
+        self.assertContains(r, '2 x Cargador')
+        self.assertContains(r, 'Taller Uno')
+        self.assertNotContains(r, 'window.print(), 300')
+        self.assertContains(self.client.get(r.request['PATH_INFO'] + '?imprimir=1'), 'window.print(), 300')
 
     def test_formulario_en_espanol(self):
         self.entrar(self.recepcion)
