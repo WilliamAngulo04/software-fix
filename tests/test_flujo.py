@@ -10,7 +10,7 @@ from django.urls import reverse
 from PIL import Image
 
 from clientes.models import Cliente, Equipo
-from cuentas.models import Usuario
+from cuentas.models import Establecimiento, Usuario
 from inventario.models import ProductoInventario
 from ordenes import services as orden_services
 from ordenes.models import OrdenServicio
@@ -35,23 +35,33 @@ class Base(TestCase):
         shutil.rmtree(MEDIA_TMP, ignore_errors=True)
 
     def setUp(self):
-        self.admin = Usuario.objects.create_user('a@x.com', 'Admin', 'clave-segura-1', rol='admin')
-        self.tecnico = Usuario.objects.create_user('t@x.com', 'Tec', 'clave-segura-1', rol='tecnico')
-        self.otro_tecnico = Usuario.objects.create_user('t2@x.com', 'Tec2', 'clave-segura-1', rol='tecnico')
-        self.recepcion = Usuario.objects.create_user('r@x.com', 'Rec', 'clave-segura-1', rol='recepcion')
-        self.cliente = Cliente.objects.create(nombre='Ana', telefono='300', documento_id='123')
+        self.taller = t = Establecimiento.objects.create(nombre='Taller Uno')
+        self.admin = Usuario.objects.create_user(
+            'a@x.com', 'Admin', 'clave-segura-1', rol='admin', establecimiento=t,
+        )
+        self.tecnico = Usuario.objects.create_user(
+            't@x.com', 'Tec', 'clave-segura-1', rol='tecnico', establecimiento=t,
+        )
+        self.otro_tecnico = Usuario.objects.create_user(
+            't2@x.com', 'Tec2', 'clave-segura-1', rol='tecnico', establecimiento=t,
+        )
+        self.recepcion = Usuario.objects.create_user(
+            'r@x.com', 'Rec', 'clave-segura-1', rol='recepcion', establecimiento=t,
+        )
+        self.cliente = Cliente.objects.create(establecimiento=t, nombre='Ana', telefono='300', documento_id='123')
         self.equipo = Equipo.objects.create(
             cliente=self.cliente, tipo_dispositivo='celular', marca='Samsung', modelo='A32',
         )
         self.pantalla = ProductoInventario.objects.create(
-            nombre='Pantalla', categoria='repuesto', precio_compra=100, precio_venta=200,
+            establecimiento=t, nombre='Pantalla', categoria='repuesto', precio_compra=100, precio_venta=200,
             stock_actual=3, es_repuesto=True,
         )
         self.cargador = ProductoInventario.objects.create(
-            nombre='Cargador', categoria='accesorio', precio_compra=20, precio_venta=50, stock_actual=10,
+            establecimiento=t, nombre='Cargador', categoria='accesorio', precio_compra=20, precio_venta=50,
+            stock_actual=10,
         )
         self.orden = OrdenServicio.objects.create(
-            equipo=self.equipo, recepcionista=self.recepcion, tecnico=self.tecnico,
+            establecimiento=t, equipo=self.equipo, recepcionista=self.recepcion, tecnico=self.tecnico,
             falla_reportada='No enciende',
         )
 
@@ -59,7 +69,7 @@ class Base(TestCase):
 class OrdenTests(Base):
     def test_codigo_consecutivo(self):
         segunda = OrdenServicio.objects.create(
-            equipo=self.equipo, recepcionista=self.recepcion, falla_reportada='x',
+            establecimiento=self.taller, equipo=self.equipo, recepcionista=self.recepcion, falla_reportada='x',
         )
         self.assertRegex(self.orden.codigo_orden, r'^ORD-\d{4}-0001$')
         self.assertTrue(segunda.codigo_orden.endswith('-0002'))
@@ -148,7 +158,7 @@ class VistasTests(Base):
         solo_admin = [reverse('usuario_list'), reverse('usuario_create'), reverse('producto_create')]
 
         for usuario, permitidas, prohibidas in [
-            (self.admin, comunes + caja + solo_admin + ['/admin/'], []),
+            (self.admin, comunes + caja + solo_admin + [reverse('establecimiento_update')], []),
             (self.recepcion, comunes + caja, solo_admin),
             (self.tecnico, comunes, caja + solo_admin),
         ]:

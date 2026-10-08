@@ -11,6 +11,7 @@ class EquipoInline(admin.TabularInline):
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'documento_id', 'telefono', 'email', 'creado_en')
+    list_filter = ('establecimiento',)
     search_fields = ('nombre', 'documento_id', 'telefono', 'email')
     inlines = [EquipoInline]
 

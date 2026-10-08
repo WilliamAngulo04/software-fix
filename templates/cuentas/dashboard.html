@@ -18,6 +18,15 @@
   </div>
 </div>
 
+{% if sin_equipo %}
+<div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div><i class="bi bi-people"></i> <b>Primer paso:</b> crea las cuentas de tus técnicos y recepcionistas, y completa los datos de tu taller.</div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'usuario_create' %}" class="btn btn-sm btn-primary">Crear usuario</a>
+    <a href="{% url 'establecimiento_update' %}" class="btn btn-sm btn-outline-primary">Datos del taller</a>
+  </div>
+</div>
+{% endif %}
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
     <div class="card h-100"><div class="card-body">

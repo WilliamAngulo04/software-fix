@@ -28,12 +28,13 @@ def puede_usar_repuestos(usuario, orden):
 
 class OrdenListView(RolRequeridoMixin, ListView):
     model = OrdenServicio
+    campo_establecimiento = 'establecimiento'
     template_name = 'ordenes/orden_list.html'
     context_object_name = 'ordenes'
     paginate_by = 25
 
     def get_queryset(self):
-        qs = OrdenServicio.objects.select_related('equipo__cliente', 'tecnico')
+        qs = super().get_queryset().select_related('equipo__cliente', 'tecnico')
         g = self.request.GET
         if g.get('estado') == 'abiertas':
             qs = qs.exclude(estado__in=OrdenServicio.ESTADOS_CERRADOS)
@@ -65,16 +66,21 @@ class OrdenCreateView(RolRequeridoMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        kwargs['establecimiento'] = self.establecimiento
         self.cliente = None
         if self.request.GET.get('cliente'):
-            self.cliente = get_object_or_404(Cliente, pk=self.request.GET['cliente'])
+            self.cliente = get_object_or_404(
+                Cliente, pk=self.request.GET['cliente'], establecimiento=self.establecimiento,
+            )
             kwargs['cliente'] = self.cliente
         return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
         if self.request.GET.get('equipo'):
-            initial['equipo'] = get_object_or_404(Equipo, pk=self.request.GET['equipo'])
+            initial['equipo'] = get_object_or_404(
+                Equipo, pk=self.request.GET['equipo'], cliente__establecimiento=self.establecimiento,
+            )
         return initial
 
     def get_context_data(self, **kwargs):
@@ -86,6 +92,7 @@ class OrdenCreateView(RolRequeridoMixin, CreateView):
         return ctx
 
     def form_valid(self, form):
+        form.instance.establecimiento = self.establecimiento
         form.instance.recepcionista = self.request.user
         respuesta = super().form_valid(form)
         messages.success(self.request, f'Orden {self.object.codigo_orden} creada. Agrega las fotos de recepción.')
@@ -97,11 +104,12 @@ class OrdenCreateView(RolRequeridoMixin, CreateView):
 
 class OrdenDetailView(RolRequeridoMixin, DetailView):
     model = OrdenServicio
+    campo_establecimiento = 'establecimiento'
     template_name = 'ordenes/orden_detail.html'
     context_object_name = 'orden'
 
     def get_queryset(self):
-        return OrdenServicio.objects.select_related('equipo__cliente', 'tecnico', 'recepcionista')
+        return super().get_queryset().select_related('equipo__cliente', 'tecnico', 'recepcionista')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -115,7 +123,7 @@ class OrdenDetailView(RolRequeridoMixin, DetailView):
         if ctx['puede_gestionar']:
             ctx['gestion_form'] = OrdenGestionForm(instance=orden, puede_asignar=not usuario.es_tecnico)
         if ctx['puede_repuestos']:
-            ctx['repuesto_form'] = RepuestoForm()
+            ctx['repuesto_form'] = RepuestoForm(establecimiento=self.establecimiento)
         ctx['evidencia_form'] = EvidenciaForm()
         ctx['repuestos'] = orden.repuestos.select_related('producto')
         ctx['evidencias'] = orden.evidencias.select_related('usuario')
@@ -127,16 +135,16 @@ class OrdenAccionMixin(RolRequeridoMixin):
 
     http_method_names = ['post']
 
-    def dispatch(self, request, *args, **kwargs):
-        self.orden = get_object_or_404(OrdenServicio, pk=kwargs['pk'])
-        return super().dispatch(request, *args, **kwargs)
+    def post(self, request, *args, **kwargs):
+        self.orden = get_object_or_404(OrdenServicio, pk=kwargs['pk'], establecimiento=self.establecimiento)
+        return self.accion(request, *args, **kwargs)
 
     def volver(self):
         return redirect('orden_detail', pk=self.orden.pk)
 
 
 class OrdenActualizarView(OrdenAccionMixin, View):
-    def post(self, request, pk):
+    def accion(self, request, pk):
         if not puede_gestionar(request.user, self.orden) or self.orden.cerrada:
             raise PermissionDenied
         form = OrdenGestionForm(request.POST, instance=self.orden, puede_asignar=not request.user.es_tecnico)
@@ -155,7 +163,7 @@ class OrdenActualizarView(OrdenAccionMixin, View):
 
 
 class EvidenciaCreateView(OrdenAccionMixin, View):
-    def post(self, request, pk):
+    def accion(self, request, pk):
         form = EvidenciaForm(request.POST, request.FILES)
         if form.is_valid():
             evidencia = form.save(commit=False)
@@ -171,10 +179,10 @@ class EvidenciaCreateView(OrdenAccionMixin, View):
 class RepuestoAgregarView(OrdenAccionMixin, View):
     roles = (ADMIN, TECNICO)
 
-    def post(self, request, pk):
+    def accion(self, request, pk):
         if not puede_usar_repuestos(request.user, self.orden):
             raise PermissionDenied
-        form = RepuestoForm(request.POST)
+        form = RepuestoForm(request.POST, establecimiento=self.establecimiento)
         if form.is_valid():
             try:
                 services.agregar_repuesto(self.orden, form.cleaned_data['producto'], form.cleaned_data['cantidad'])
@@ -189,7 +197,7 @@ class RepuestoAgregarView(OrdenAccionMixin, View):
 class RepuestoQuitarView(OrdenAccionMixin, View):
     roles = (ADMIN, TECNICO)
 
-    def post(self, request, pk, detalle_pk):
+    def accion(self, request, pk, detalle_pk):
         if not puede_usar_repuestos(request.user, self.orden):
             raise PermissionDenied
         detalle = get_object_or_404(DetalleReparacionRepuesto, pk=detalle_pk, orden=self.orden)
@@ -205,8 +213,9 @@ class OrdenComprobanteView(RolRequeridoMixin, DetailView):
     """Comprobante imprimible para entregar al cliente al recibir el equipo."""
 
     model = OrdenServicio
+    campo_establecimiento = 'establecimiento'
     template_name = 'ordenes/orden_comprobante.html'
     context_object_name = 'orden'
 
     def get_queryset(self):
-        return OrdenServicio.objects.select_related('equipo__cliente', 'recepcionista')
+        return super().get_queryset().select_related('equipo__cliente', 'recepcionista', 'establecimiento')

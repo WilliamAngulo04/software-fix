@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from clientes.models import Cliente, Equipo
-from cuentas.models import Usuario
+from cuentas.models import Establecimiento, Usuario
 from inventario.models import ProductoInventario
 from ordenes.models import OrdenServicio
 
@@ -15,6 +15,9 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         clave = 'Taller2026*'
+        taller, _ = Establecimiento.objects.get_or_create(
+            nombre='Taller Demo', defaults={'telefono': '6011234567', 'direccion': 'Calle 1 # 2-3'},
+        )
         usuarios = {}
         for email, nombre, rol in [
             ('admin@softwarefix.com', 'Administrador', 'admin'),
@@ -22,7 +25,7 @@ class Command(BaseCommand):
             ('recepcion@softwarefix.com', 'Laura Recepción', 'recepcion'),
         ]:
             usuario, creado = Usuario.objects.get_or_create(
-                email=email, defaults={'nombre': nombre, 'rol': rol, 'is_superuser': rol == 'admin'},
+                email=email, defaults={'nombre': nombre, 'rol': rol, 'establecimiento': taller},
             )
             if creado:
                 usuario.set_password(clave)
@@ -39,22 +42,22 @@ class Command(BaseCommand):
             ('7701007', 'Pasta térmica', 'herramienta', False, 12000, 25000, 2),
         ]
         for codigo, nombre, categoria, es_rep, compra, venta, stock in productos:
-            ProductoInventario.objects.get_or_create(codigo_barras=codigo, defaults={
+            ProductoInventario.objects.get_or_create(establecimiento=taller, codigo_barras=codigo, defaults={
                 'nombre': nombre, 'categoria': categoria, 'es_repuesto': es_rep,
                 'precio_compra': Decimal(compra), 'precio_venta': Decimal(venta), 'stock_actual': stock,
             })
 
-        ana, _ = Cliente.objects.get_or_create(documento_id='1020304050', defaults={
+        ana, _ = Cliente.objects.get_or_create(establecimiento=taller, documento_id='1020304050', defaults={
             'nombre': 'Ana Gómez', 'telefono': '3001234567', 'email': 'ana@example.com',
         })
-        luis, _ = Cliente.objects.get_or_create(documento_id='79888777', defaults={
+        luis, _ = Cliente.objects.get_or_create(establecimiento=taller, documento_id='79888777', defaults={
             'nombre': 'Luis Pérez', 'telefono': '3109876543',
         })
         if not ana.equipos.exists():
             celular = Equipo.objects.create(cliente=ana, tipo_dispositivo='celular', marca='Samsung',
                                             modelo='Galaxy A32', numero_serie_imei='356789101112131', clave_patron='1234')
             OrdenServicio.objects.create(
-                equipo=celular, recepcionista=usuarios['recepcion'], tecnico=usuarios['tecnico'],
+                establecimiento=taller, equipo=celular, recepcionista=usuarios['recepcion'], tecnico=usuarios['tecnico'],
                 estado='en_diagnostico', falla_reportada='Pantalla rota, no responde al tacto.',
                 observaciones_esteticas='Golpe en la esquina inferior izquierda.', costo_estimado=Decimal(300000),
             )
@@ -62,7 +65,7 @@ class Command(BaseCommand):
             laptop = Equipo.objects.create(cliente=luis, tipo_dispositivo='laptop', marca='Lenovo',
                                            modelo='IdeaPad 3', numero_serie_imei='PF2XYZ12')
             OrdenServicio.objects.create(
-                equipo=laptop, recepcionista=usuarios['recepcion'],
+                establecimiento=taller, equipo=laptop, recepcionista=usuarios['recepcion'],
                 falla_reportada='Muy lento, se calienta.', costo_estimado=Decimal(220000),
             )
 

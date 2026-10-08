@@ -1,5 +1,7 @@
 from django.db import models
 
+from cuentas.models import Establecimiento
+
 
 class ProductoInventario(models.Model):
     """Catálogo de productos y repuestos."""
@@ -9,7 +11,8 @@ class ProductoInventario(models.Model):
         REPUESTO = 'repuesto', 'Repuesto'
         HERRAMIENTA = 'herramienta', 'Herramienta'
 
-    codigo_barras = models.CharField('código de barras', max_length=50, unique=True, null=True, blank=True)
+    establecimiento = models.ForeignKey(Establecimiento, on_delete=models.CASCADE, related_name='productos')
+    codigo_barras = models.CharField('código de barras', max_length=50, null=True, blank=True)
     nombre = models.CharField(max_length=120)
     categoria = models.CharField('categoría', max_length=50, choices=Categoria.choices)
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
@@ -22,6 +25,9 @@ class ProductoInventario(models.Model):
     class Meta:
         db_table = 'productos_inventario'
         ordering = ['nombre']
+        constraints = [
+            models.UniqueConstraint(fields=['establecimiento', 'codigo_barras'], name='productos_codigo_barras_unico'),
+        ]
         verbose_name = 'producto'
 
     def __str__(self):

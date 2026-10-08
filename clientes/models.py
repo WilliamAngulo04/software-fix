@@ -1,10 +1,13 @@
 from django.db import models
 
+from cuentas.models import Establecimiento
+
 
 class Cliente(models.Model):
     """Datos del cliente."""
 
-    documento_id = models.CharField('documento', max_length=20, unique=True, null=True, blank=True)
+    establecimiento = models.ForeignKey(Establecimiento, on_delete=models.CASCADE, related_name='clientes')
+    documento_id = models.CharField('documento', max_length=20, null=True, blank=True)
     nombre = models.CharField(max_length=100)
     telefono = models.CharField('teléfono', max_length=20)
     email = models.EmailField(max_length=100, blank=True, null=True)
@@ -14,6 +17,9 @@ class Cliente(models.Model):
     class Meta:
         db_table = 'clientes'
         ordering = ['nombre']
+        constraints = [
+            models.UniqueConstraint(fields=['establecimiento', 'documento_id'], name='clientes_documento_unico'),
+        ]
 
     def __str__(self):
         return f'{self.nombre} ({self.documento_id})' if self.documento_id else self.nombre

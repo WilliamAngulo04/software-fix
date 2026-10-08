@@ -8,8 +8,12 @@ from inventario.models import ProductoInventario
 from .models import EvidenciaFotografica, OrdenServicio
 
 
-def tecnicos_activos():
-    return Usuario.objects.filter(rol=Usuario.Rol.TECNICO, activo=True)
+def tecnicos_activos(establecimiento):
+    return Usuario.objects.filter(establecimiento=establecimiento, rol=Usuario.Rol.TECNICO, activo=True)
+
+
+def etiqueta_producto(p):
+    return f'{p.nombre} — ${p.precio_venta:,.0f} (stock: {p.stock_actual})'
 
 
 class OrdenForm(BootstrapMixin, forms.ModelForm):
@@ -23,14 +27,14 @@ class OrdenForm(BootstrapMixin, forms.ModelForm):
         ]
         widgets = {'fecha_promesa': FechaHoraInput()}
 
-    def __init__(self, *args, cliente=None, **kwargs):
+    def __init__(self, *args, establecimiento, cliente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        equipos = Equipo.objects.select_related('cliente')
+        equipos = Equipo.objects.filter(cliente__establecimiento=establecimiento).select_related('cliente')
         if cliente is not None:
             equipos = equipos.filter(cliente=cliente)
         self.fields['equipo'].queryset = equipos
         self.fields['equipo'].label_from_instance = lambda e: f'{e.cliente.nombre} — {e}'
-        self.fields['tecnico'].queryset = tecnicos_activos()
+        self.fields['tecnico'].queryset = tecnicos_activos(establecimiento)
 
 
 class OrdenGestionForm(BootstrapMixin, forms.ModelForm):
@@ -46,7 +50,7 @@ class OrdenGestionForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, puede_asignar=True, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['tecnico'].queryset = tecnicos_activos()
+        self.fields['tecnico'].queryset = tecnicos_activos(self.instance.establecimiento_id)
         # "Entregado" solo se alcanza al cobrar la orden en Ventas.
         self.fields['estado'].choices = [
             c for c in OrdenServicio.Estado.choices
@@ -71,13 +75,13 @@ class EvidenciaForm(BootstrapMixin, forms.ModelForm):
 
 
 class RepuestoForm(BootstrapMixin, forms.Form):
-    producto = forms.ModelChoiceField(
-        queryset=ProductoInventario.objects.filter(stock_actual__gt=0).order_by('-es_repuesto', 'nombre'),
-    )
+    producto = forms.ModelChoiceField(queryset=ProductoInventario.objects.none())
     cantidad = forms.IntegerField(min_value=1, initial=1)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, establecimiento, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['producto'].label_from_instance = (
-            lambda p: f'{p.nombre} — ${p.precio_venta:,.0f} (stock: {p.stock_actual})'
+        self.fields['producto'].queryset = (
+            ProductoInventario.objects.filter(establecimiento=establecimiento, stock_actual__gt=0)
+            .order_by('-es_repuesto', 'nombre')
         )
+        self.fields['producto'].label_from_instance = etiqueta_producto

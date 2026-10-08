@@ -9,8 +9,14 @@ from .forms import ProductoForm
 from .models import ProductoInventario
 
 
+class ProductoFormMixin:
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), 'establecimiento': self.establecimiento}
+
+
 class ProductoListView(RolRequeridoMixin, ListView):
     model = ProductoInventario
+    campo_establecimiento = 'establecimiento'
     template_name = 'inventario/producto_list.html'
     context_object_name = 'productos'
     paginate_by = 30
@@ -33,7 +39,7 @@ class ProductoListView(RolRequeridoMixin, ListView):
         return ctx
 
 
-class ProductoCreateView(RolRequeridoMixin, CreateView):
+class ProductoCreateView(RolRequeridoMixin, ProductoFormMixin, CreateView):
     roles = (ADMIN,)
     model = ProductoInventario
     form_class = ProductoForm
@@ -42,13 +48,15 @@ class ProductoCreateView(RolRequeridoMixin, CreateView):
     extra_context = {'titulo': 'Nuevo producto'}
 
     def form_valid(self, form):
+        form.instance.establecimiento = self.establecimiento
         messages.success(self.request, 'Producto creado.')
         return super().form_valid(form)
 
 
-class ProductoUpdateView(RolRequeridoMixin, UpdateView):
+class ProductoUpdateView(RolRequeridoMixin, ProductoFormMixin, UpdateView):
     roles = (ADMIN,)
     model = ProductoInventario
+    campo_establecimiento = 'establecimiento'
     form_class = ProductoForm
     template_name = 'form_generico.html'
     success_url = reverse_lazy('producto_list')

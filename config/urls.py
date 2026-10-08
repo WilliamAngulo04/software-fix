@@ -4,11 +4,12 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from cuentas.views import DashboardView, LoginView
+from cuentas.views import DashboardView, LoginView, RegistroView
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
     path('login/', LoginView.as_view(), name='login'),
+    path('registro/', RegistroView.as_view(), name='registro'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('usuarios/', include('cuentas.urls')),
     path('clientes/', include('clientes.urls')),

@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from clientes.models import Cliente
+from cuentas.models import Establecimiento
 from inventario.models import ProductoInventario
 from ordenes.models import OrdenServicio
 
@@ -13,6 +14,7 @@ class Venta(models.Model):
         TARJETA = 'tarjeta', 'Tarjeta'
         TRANSFERENCIA = 'transferencia', 'Transferencia'
 
+    establecimiento = models.ForeignKey(Establecimiento, on_delete=models.CASCADE, related_name='ventas')
     # Puede ser NULL si es venta de mostrador anónima
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, null=True, blank=True, related_name='compras')
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='ventas')

@@ -18,12 +18,13 @@ CAJEROS = (ADMIN, RECEPCION)
 class VentaListView(RolRequeridoMixin, ListView):
     roles = CAJEROS
     model = Venta
+    campo_establecimiento = 'establecimiento'
     template_name = 'ventas/venta_list.html'
     context_object_name = 'ventas'
     paginate_by = 30
 
     def get_queryset(self):
-        qs = Venta.objects.select_related('cliente', 'usuario', 'orden_servicio')
+        qs = super().get_queryset().select_related('cliente', 'usuario', 'orden_servicio')
         g = self.request.GET
         if g.get('desde'):
             qs = qs.filter(fecha_venta__date__gte=g['desde'])
@@ -46,10 +47,11 @@ class VentaListView(RolRequeridoMixin, ListView):
 class VentaDetailView(RolRequeridoMixin, DetailView):
     roles = CAJEROS
     model = Venta
+    campo_establecimiento = 'establecimiento'
     template_name = 'ventas/venta_detail.html'
 
     def get_queryset(self):
-        return Venta.objects.select_related('cliente', 'usuario', 'orden_servicio__equipo')
+        return super().get_queryset().select_related('cliente', 'usuario', 'orden_servicio__equipo', 'establecimiento')
 
 
 class VentaCreateView(RolRequeridoMixin, View):
@@ -60,19 +62,27 @@ class VentaCreateView(RolRequeridoMixin, View):
 
     def get_orden(self, request):
         orden_id = request.GET.get('orden')
-        return get_object_or_404(OrdenServicio, pk=orden_id) if orden_id else None
+        if not orden_id:
+            return None
+        return get_object_or_404(OrdenServicio, pk=orden_id, establecimiento=self.establecimiento)
 
     def mostrar(self, request, form, formset, orden):
         return render(request, self.template_name, {'form': form, 'formset': formset, 'orden': orden})
 
+    def formularios(self, orden, datos=None):
+        e = self.establecimiento
+        return (
+            VentaForm(datos, establecimiento=e, orden=orden),
+            LineaVentaFormSet(datos, prefix='lineas', form_kwargs={'establecimiento': e}),
+        )
+
     def get(self, request):
         orden = self.get_orden(request)
-        return self.mostrar(request, VentaForm(orden=orden), LineaVentaFormSet(prefix='lineas'), orden)
+        return self.mostrar(request, *self.formularios(orden), orden)
 
     def post(self, request):
         orden = self.get_orden(request)
-        form = VentaForm(request.POST, orden=orden)
-        formset = LineaVentaFormSet(request.POST, prefix='lineas')
+        form, formset = self.formularios(orden, request.POST)
         if form.is_valid() and formset.is_valid():
             items = [
                 (f.cleaned_data['producto'], f.cleaned_data['cantidad'])

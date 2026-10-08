@@ -6,6 +6,7 @@ from django.db.models import F, Sum
 from django.utils import timezone
 
 from clientes.models import Equipo
+from cuentas.models import Establecimiento
 from inventario.models import ProductoInventario
 
 
@@ -23,7 +24,8 @@ class OrdenServicio(models.Model):
 
     ESTADOS_CERRADOS = (Estado.ENTREGADO, Estado.CANCELADO)
 
-    codigo_orden = models.CharField('código', max_length=20, unique=True, editable=False)
+    establecimiento = models.ForeignKey(Establecimiento, on_delete=models.CASCADE, related_name='ordenes')
+    codigo_orden = models.CharField('código', max_length=20, editable=False)
     equipo = models.ForeignKey(Equipo, on_delete=models.PROTECT, related_name='ordenes')
     recepcionista = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='ordenes_recibidas'
@@ -52,6 +54,9 @@ class OrdenServicio(models.Model):
     class Meta:
         db_table = 'ordenes_servicio'
         ordering = ['-fecha_ingreso']
+        constraints = [
+            models.UniqueConstraint(fields=['establecimiento', 'codigo_orden'], name='ordenes_codigo_unico'),
+        ]
         verbose_name = 'orden de servicio'
         verbose_name_plural = 'órdenes de servicio'
 
@@ -60,17 +65,17 @@ class OrdenServicio(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo_orden:
-            self.codigo_orden = self.siguiente_codigo()
+            self.codigo_orden = self.siguiente_codigo(self.establecimiento_id)
         if self.estado == self.Estado.ENTREGADO and not self.fecha_entrega:
             self.fecha_entrega = timezone.now()
         super().save(*args, **kwargs)
 
     @classmethod
-    def siguiente_codigo(cls):
-        """Genera códigos del tipo ORD-2026-0001, reiniciando el consecutivo cada año."""
+    def siguiente_codigo(cls, establecimiento_id):
+        """Genera códigos del tipo ORD-2026-0001: consecutivo propio de cada taller, reiniciado cada año."""
         prefijo = f'ORD-{timezone.localdate().year}-'
         ultimo = (
-            cls.objects.filter(codigo_orden__startswith=prefijo)
+            cls.objects.filter(establecimiento_id=establecimiento_id, codigo_orden__startswith=prefijo)
             .order_by('-codigo_orden').values_list('codigo_orden', flat=True).first()
         )
         numero = int(ultimo.rsplit('-', 1)[1]) + 1 if ultimo else 1

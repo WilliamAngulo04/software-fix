@@ -11,7 +11,11 @@
     <div class="card">
       <div class="card-body p-4">
         <div class="d-flex justify-content-between border-bottom pb-3 mb-3">
-          <div><h1 class="h4 mb-0">Software Fix</h1><div class="text-body-secondary">Recibo de venta</div></div>
+          {% with t=venta.establecimiento %}<div>
+      <h1 class="h4 mb-0">{{ t.nombre }}</h1>
+      <div class="text-body-secondary">Recibo de venta</div>
+      <div class="small">{% if t.nit %}NIT {{ t.nit }}{% endif %}{% if t.telefono %} · Tel. {{ t.telefono }}{% endif %}{% if t.direccion %} · {{ t.direccion }}{% endif %}</div>
+    </div>{% endwith %}
           <div class="text-end"><div class="h5 mb-0">#{{ venta.pk }}</div><div>{{ venta.fecha_venta|date:"d/m/Y H:i" }}</div></div>
         </div>
         <div class="mb-3">

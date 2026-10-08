@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block titulo %}Registrar mi taller{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center pt-4">
+  <div class="col-md-8 col-lg-6">
+    <div class="text-center mb-4">
+      <i class="bi bi-tools display-4 text-primary"></i>
+      <h1 class="h3 mt-2">Registra tu taller</h1>
+      <p class="text-body-secondary">Crea la cuenta de administrador. Después podrás agregar a tus técnicos y recepcionistas.</p>
+    </div>
+    <div class="card">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+          <h2 class="h6 text-uppercase text-body-secondary mb-3">El taller</h2>
+          <div class="row g-3 mb-4">
+            {% for campo in form %}{% if campo.name == 'taller' or campo.name == 'telefono_taller' %}
+            <div class="col-md-6">
+              <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+              {{ campo }}
+              {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+
+          <h2 class="h6 text-uppercase text-body-secondary mb-3">Tu cuenta de administrador</h2>
+          <div class="row g-3">
+            {% for campo in form %}{% if campo.name != 'taller' and campo.name != 'telefono_taller' %}
+            <div class="col-md-6">
+              <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }} <span class="text-danger">*</span></label>
+              {{ campo }}
+              {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+
+          <button class="btn btn-primary w-100 mt-4">Crear mi taller</button>
+        </form>
+      </div>
+    </div>
+    <p class="text-center mt-3">¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión</a></p>
+  </div>
+</div>
+{% endblock %}

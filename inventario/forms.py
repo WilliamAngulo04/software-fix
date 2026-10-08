@@ -13,8 +13,17 @@ class ProductoForm(BootstrapMixin, forms.ModelForm):
             'precio_compra', 'precio_venta', 'stock_actual', 'stock_minimo',
         ]
 
+    def __init__(self, *args, establecimiento, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.establecimiento = establecimiento
+
     def clean_codigo_barras(self):
-        return self.cleaned_data['codigo_barras'] or None
+        codigo = self.cleaned_data['codigo_barras'] or None
+        if codigo:
+            repetido = ProductoInventario.objects.filter(establecimiento=self.establecimiento, codigo_barras=codigo)
+            if repetido.exclude(pk=self.instance.pk).exists():
+                raise forms.ValidationError('Ya existe un producto con este código de barras.')
+        return codigo
 
     def clean(self):
         datos = super().clean()

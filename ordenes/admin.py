@@ -16,7 +16,7 @@ class RepuestoInline(admin.TabularInline):
 @admin.register(OrdenServicio)
 class OrdenServicioAdmin(admin.ModelAdmin):
     list_display = ('codigo_orden', 'equipo', 'estado', 'tecnico', 'fecha_ingreso', 'fecha_promesa', 'costo_final')
-    list_filter = ('estado', 'tecnico')
+    list_filter = ('establecimiento', 'estado', 'tecnico')
     search_fields = ('codigo_orden', 'equipo__cliente__nombre', 'equipo__numero_serie_imei')
     readonly_fields = ('codigo_orden',)
     inlines = [RepuestoInline, EvidenciaInline]
