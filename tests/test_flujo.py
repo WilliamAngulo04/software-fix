@@ -224,6 +224,37 @@ class VistasTests(Base):
         self.assertEqual(OrdenServicio.objects.count(), 1)
         self.assertEqual(Cliente.objects.count(), 2)
 
+    def datos_recepcion(self, **extra):
+        return {
+            'modo_cliente': 'existente', 'cliente': self.cliente.pk,
+            'modo_equipo': 'existente', 'equipo': self.equipo.pk,
+            'falla_reportada': 'Pantalla rota', 'costo_estimado': '0', **extra,
+        }
+
+    def test_recepcion_con_fotos(self):
+        self.entrar(self.recepcion)
+        fotos = [SimpleUploadedFile(f'f{i}.png', imagen_png(), content_type='image/png') for i in range(3)]
+        r = self.client.post(reverse('orden_create'), self.datos_recepcion(fotos=fotos, descripcion_fotos='Rayón'))
+        nueva = OrdenServicio.objects.latest('id')
+        self.assertRedirects(r, reverse('orden_detail', args=[nueva.pk]), fetch_redirect_response=False)
+        self.assertEqual(nueva.evidencias.count(), 3)
+        evidencia = nueva.evidencias.first()
+        self.assertEqual((evidencia.momento, evidencia.descripcion, evidencia.usuario),
+                         ('recepcion', 'Rayón', self.recepcion))
+        self.assertContains(self.client.get(r.url), 'con 3 fotos')
+
+    def test_recepcion_rechaza_fotos_invalidas_sin_guardar_nada(self):
+        self.entrar(self.recepcion)
+        antes = OrdenServicio.objects.count()
+        falsa = SimpleUploadedFile('virus.png', b'esto no es una imagen', content_type='image/png')
+        r = self.client.post(reverse('orden_create'), self.datos_recepcion(fotos=[falsa]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'vuelve a elegirlas')
+        demasiadas = [SimpleUploadedFile(f'f{i}.png', imagen_png(), content_type='image/png') for i in range(9)]
+        r = self.client.post(reverse('orden_create'), self.datos_recepcion(fotos=demasiadas))
+        self.assertContains(r, 'máximo 8 fotos')
+        self.assertEqual(OrdenServicio.objects.count(), antes)
+
     def test_formulario_en_espanol(self):
         self.entrar(self.recepcion)
         r = self.client.get(reverse('orden_create') + f'?equipo={self.equipo.pk}')

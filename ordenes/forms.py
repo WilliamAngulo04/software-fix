@@ -65,6 +65,44 @@ class RecepcionForm(BootstrapMixin, forms.Form):
         return datos
 
 
+MAX_FOTOS_RECEPCION = 8
+MAX_BYTES_FOTO = 4 * 1024 * 1024
+
+
+class VariasImagenesInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class VariasImagenesField(forms.ImageField):
+    """Campo que acepta varias imágenes y valida cada una (formato y tamaño)."""
+
+    def __init__(self, *args, **kwargs):
+        # El input nativo queda oculto: la plantilla muestra un botón y miniaturas.
+        kwargs.setdefault('widget', VariasImagenesInput(
+            attrs={'accept': 'image/*', 'multiple': True, 'class': 'visually-hidden'},
+        ))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, datos, inicial=None):
+        archivos = datos if isinstance(datos, (list, tuple)) else ([datos] if datos else [])
+        if len(archivos) > MAX_FOTOS_RECEPCION:
+            raise forms.ValidationError(f'Puedes subir máximo {MAX_FOTOS_RECEPCION} fotos.')
+        limpios = []
+        for archivo in archivos:
+            if archivo.size > MAX_BYTES_FOTO:
+                raise forms.ValidationError(f'La foto "{archivo.name}" pesa más de 4 MB.')
+            limpios.append(super().clean(archivo, inicial))
+        return limpios
+
+
+class FotosRecepcionForm(BootstrapMixin, forms.Form):
+    fotos = VariasImagenesField(label='Fotos del equipo', required=False)
+    descripcion_fotos = forms.CharField(
+        label='Nota para las fotos', max_length=255, required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Ej: rayón en la esquina, pantalla encendida…'}),
+    )
+
+
 class OrdenForm(BootstrapMixin, forms.ModelForm):
     """Datos de la orden en la recepción."""
 

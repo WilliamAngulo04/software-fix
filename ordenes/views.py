@@ -13,8 +13,10 @@ from clientes.models import Cliente, Equipo
 from cuentas.permisos import ADMIN, RECEPCION, TECNICO, RolRequeridoMixin
 
 from . import services
-from .forms import EvidenciaForm, OrdenForm, OrdenGestionForm, RecepcionForm, RepuestoForm
-from .models import DetalleReparacionRepuesto, OrdenServicio
+from .forms import (
+    MAX_FOTOS_RECEPCION, EvidenciaForm, FotosRecepcionForm, OrdenForm, OrdenGestionForm, RecepcionForm, RepuestoForm,
+)
+from .models import DetalleReparacionRepuesto, EvidenciaFotografica, OrdenServicio
 
 
 def puede_gestionar(usuario, orden):
@@ -63,15 +65,16 @@ class OrdenListView(RolRequeridoMixin, ListView):
 class OrdenCreateView(RolRequeridoMixin, View):
     """
     Recepción de un equipo en una sola pantalla: cliente (registrado o nuevo),
-    equipo (registrado o nuevo) y datos de la orden.
+    equipo (registrado o nuevo), datos de la orden y fotos de cómo llegó el equipo.
     """
 
     roles = (ADMIN, RECEPCION)
     template_name = 'ordenes/orden_form.html'
 
-    def formularios(self, datos=None, inicial=None):
+    def formularios(self, datos=None, inicial=None, archivos=None):
         e = self.establecimiento
         return {
+            'fotos_form': FotosRecepcionForm(datos, archivos),
             'recepcion': RecepcionForm(datos, establecimiento=e, initial=inicial),
             'cliente_form': ClienteForm(datos, establecimiento=e, prefix='cli'),
             'equipo_form': EquipoForm(datos, prefix='eq'),
@@ -85,7 +88,9 @@ class OrdenCreateView(RolRequeridoMixin, View):
             str(pk): cliente_id
             for pk, cliente_id in recepcion.fields['equipo'].queryset.values_list('pk', 'cliente_id')
         }
-        return render(request, self.template_name, {**forms, 'equipos_por_cliente': equipos_por_cliente})
+        return render(request, self.template_name, {
+            **forms, 'equipos_por_cliente': equipos_por_cliente, 'max_fotos': MAX_FOTOS_RECEPCION,
+        })
 
     def get(self, request):
         inicial = {}
@@ -103,11 +108,11 @@ class OrdenCreateView(RolRequeridoMixin, View):
         return self.mostrar(request, self.formularios(inicial=inicial))
 
     def post(self, request):
-        forms = self.formularios(request.POST)
-        recepcion, cliente_form, equipo_form, orden_form = (
-            forms['recepcion'], forms['cliente_form'], forms['equipo_form'], forms['orden_form'],
+        forms = self.formularios(request.POST, archivos=request.FILES)
+        recepcion, cliente_form, equipo_form, orden_form, fotos_form = (
+            forms['recepcion'], forms['cliente_form'], forms['equipo_form'], forms['orden_form'], forms['fotos_form'],
         )
-        validos = [recepcion.is_valid(), orden_form.is_valid()]
+        validos = [recepcion.is_valid(), orden_form.is_valid(), fotos_form.is_valid()]
         if recepcion.is_valid():
             datos = recepcion.cleaned_data
             if datos['modo_cliente'] == RecepcionForm.NUEVO:
@@ -115,7 +120,8 @@ class OrdenCreateView(RolRequeridoMixin, View):
             if datos['modo_equipo'] == RecepcionForm.NUEVO:
                 validos.append(equipo_form.is_valid())
         if not all(validos):
-            messages.error(request, 'Revisa los campos marcados en rojo.')
+            aviso = ' Por seguridad, el navegador no conserva las fotos: vuelve a elegirlas.' if request.FILES else ''
+            messages.error(request, 'Revisa los campos marcados en rojo.' + aviso)
             return self.mostrar(request, forms)
 
         with transaction.atomic():
@@ -136,7 +142,15 @@ class OrdenCreateView(RolRequeridoMixin, View):
             orden.recepcionista = request.user
             orden.save()
 
-        messages.success(request, f'Orden {orden.codigo_orden} creada. Agrega las fotos de recepción.')
+            fotos = fotos_form.cleaned_data['fotos']
+            for foto in fotos:
+                EvidenciaFotografica.objects.create(
+                    orden=orden, usuario=request.user, momento=EvidenciaFotografica.Momento.RECEPCION,
+                    url_foto=foto, descripcion=fotos_form.cleaned_data['descripcion_fotos'] or None,
+                )
+
+        detalle = f' con {len(fotos)} foto{"s" if len(fotos) != 1 else ""}' if fotos else '. Recuerda subir las fotos de recepción'
+        messages.success(request, f'Orden {orden.codigo_orden} creada{detalle}.')
         return redirect('orden_detail', pk=orden.pk)
 
 
