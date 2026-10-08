@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 
 class Establecimiento(models.Model):
@@ -9,6 +10,10 @@ class Establecimiento(models.Model):
     nit = models.CharField('NIT / documento', max_length=30, blank=True, null=True)
     telefono = models.CharField('teléfono', max_length=20, blank=True, null=True)
     direccion = models.CharField('dirección', max_length=200, blank=True, null=True)
+    licencia_hasta = models.DateTimeField(
+        'licencia vigente hasta', null=True, blank=True,
+        help_text='Al pasar esta fecha el taller queda bloqueado hasta renovar. Vacío = bloqueado.',
+    )
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -17,6 +22,22 @@ class Establecimiento(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    @property
+    def licencia_vigente(self):
+        return self.licencia_hasta is not None and self.licencia_hasta > timezone.now()
+
+    @property
+    def dias_restantes(self):
+        """Días (redondeados hacia arriba) que le quedan a la licencia; 0 si venció."""
+        if not self.licencia_vigente:
+            return 0
+        segundos = (self.licencia_hasta - timezone.now()).total_seconds()
+        return int(-(-segundos // 86400))
+
+    @property
+    def en_prueba(self):
+        return not self.licencias.filter(estado='aprobada').exists()
 
 
 class UsuarioManager(BaseUserManager):

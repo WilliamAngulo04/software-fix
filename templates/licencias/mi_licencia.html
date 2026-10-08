@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Mi licencia{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-3">Licencia de {{ taller.nombre }}</h1>
+
+{% if taller.licencia_vigente %}
+  <div class="alert alert-{% if licencia_avisar %}warning{% else %}success{% endif %}">
+    <i class="bi bi-shield-check"></i>
+    {% if licencia_en_prueba %}Periodo de prueba{% else %}Licencia activa{% endif %}:
+    te quedan <b>{{ taller.dias_restantes }} día{{ taller.dias_restantes|pluralize }}</b>
+    (hasta el {{ taller.licencia_hasta|date:"d/m/Y H:i" }}).
+  </div>
+{% else %}
+  <div class="alert alert-danger">
+    <i class="bi bi-lock"></i>
+    {% if licencia_en_prueba %}Tu periodo de prueba terminó.{% else %}Tu licencia venció.{% endif %}
+    El acceso al sistema está bloqueado hasta activar un plan. <b>Tus datos están guardados.</b>
+  </div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header bg-transparent fw-semibold">Adquirir o renovar</div>
+      <div class="card-body">
+        {% if not user.es_admin %}
+          <p class="mb-0">Pide al administrador de tu taller que adquiera o renueve la licencia.</p>
+        {% elif pendiente %}
+          <div class="alert alert-info mb-0">
+            <i class="bi bi-hourglass-split"></i> Tienes una solicitud del plan <b>{{ pendiente.plan.nombre }}</b>
+            ({{ pendiente.valor|dinero }}) enviada el {{ pendiente.creado_en|date:"d/m/Y H:i" }}.
+            La activaremos en cuanto confirmemos el pago.
+          </div>
+        {% else %}
+          <form method="post">
+            {% csrf_token %}
+            <div class="row g-2 mb-3">
+              {% for opcion in form.plan %}
+              <div class="col-sm-6">
+                <label class="border rounded p-3 d-flex gap-2 h-100" style="cursor:pointer" for="{{ opcion.id_for_label }}">
+                  {{ opcion.tag }}
+                  <span>{{ opcion.choice_label }}</span>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+            {% for e in form.plan.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <label class="form-label" for="{{ form.referencia_pago.id_for_label }}">{{ form.referencia_pago.label }}</label>
+            {{ form.referencia_pago }}
+            <div class="form-text mb-3">{{ form.referencia_pago.help_text }}</div>
+            <button class="btn btn-primary"><i class="bi bi-send"></i> Enviar solicitud</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header bg-transparent fw-semibold"><i class="bi bi-wallet2"></i> Instrucciones de pago</div>
+      <div class="card-body small">
+        {{ config.instrucciones_pago|linebreaksbr }}
+        {% if config.whatsapp %}<div class="mt-2"><a href="https://wa.me/{{ config.whatsapp }}?text={{ 'Hola, quiero activar la licencia de '|urlencode }}{{ taller.nombre|urlencode }}" target="_blank" rel="noopener" class="btn btn-sm btn-success"><i class="bi bi-whatsapp"></i> Enviar comprobante</a></div>{% endif %}
+        {% if config.email_contacto %}<div class="mt-2"><i class="bi bi-envelope"></i> {{ config.email_contacto }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header bg-transparent fw-semibold">Historial</div>
+      <ul class="list-group list-group-flush small">
+        {% for l in historial %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between">
+              <b>{{ l.plan.nombre }}</b>
+              <span class="badge text-bg-{% if l.estado == 'aprobada' %}success{% elif l.estado == 'pendiente' %}info{% else %}secondary{% endif %}">{{ l.get_estado_display }}</span>
+            </div>
+            <div class="text-body-secondary">
+              {{ l.valor|dinero }} · solicitada {{ l.creado_en|date:"d/m/Y" }}
+              {% if l.fecha_fin %}· vigente {{ l.fecha_inicio|date:"d/m/Y" }} – {{ l.fecha_fin|date:"d/m/Y" }}{% endif %}
+            </div>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-body-secondary">Aún no has adquirido ningún plan.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

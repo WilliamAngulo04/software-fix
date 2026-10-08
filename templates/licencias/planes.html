@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Planes y licencias{% endblock %}
+{% block contenido %}
+<div class="text-center mb-4 pt-2">
+  <i class="bi bi-tools display-5 text-primary"></i>
+  <h1 class="h2 mt-2">Adquiere tu licencia</h1>
+  <p class="text-body-secondary mb-0">
+    Órdenes de servicio, fotos de recepción, inventario, ventas y recibos para tu taller.
+  </p>
+  <p class="fw-semibold">Empieza con {{ config.dias_prueba }} días gratis, sin tarjeta.</p>
+</div>
+
+<div class="row g-3 justify-content-center mb-4">
+  {% for p in planes %}
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 text-center {% if forloop.last %}border border-primary border-2{% endif %}">
+      <div class="card-body d-flex flex-column">
+        <h2 class="h5">{{ p.nombre }}</h2>
+        <div class="text-body-secondary small mb-2">{{ p.dias }} días</div>
+        <div class="fs-3 fw-bold">{{ p.precio|dinero }}</div>
+        <div class="small text-body-secondary">≈ {{ p.precio_mensual|dinero }} / mes</div>
+        {% if p.ahorro > 0 %}<div class="mt-1"><span class="badge text-bg-success">Ahorras {{ p.ahorro }}%</span></div>{% endif %}
+        {% if p.descripcion %}<p class="small mt-2 mb-0">{{ p.descripcion }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <p class="text-center text-body-secondary">Pronto publicaremos los planes disponibles.</p>
+  {% endfor %}
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body p-4">
+        <h2 class="h5">¿Cómo adquirirla?</h2>
+        <ol class="mb-3">
+          {% if user.is_authenticated %}
+            <li>Ve a <a href="{% url 'mi_licencia' %}">Mi licencia</a> y elige tu plan.</li>
+          {% else %}
+            <li><a href="{% url 'registro' %}">Registra tu taller</a> y usa el sistema gratis durante {{ config.dias_prueba }} días.
+              Si ya tienes cuenta, <a href="{% url 'login' %}">inicia sesión</a>.</li>
+            <li>En el menú <b>Mi licencia</b>, elige el plan.</li>
+          {% endif %}
+          <li>Realiza el pago y envía la referencia en tu solicitud.</li>
+          <li>Activamos tu licencia en cuanto confirmemos el pago. Si aún tenías días, se suman.</li>
+        </ol>
+        <div class="alert alert-light border mb-0">
+          <div class="fw-semibold mb-1"><i class="bi bi-wallet2"></i> Instrucciones de pago</div>
+          <div class="small">{{ config.instrucciones_pago|linebreaksbr }}</div>
+          {% if config.whatsapp or config.email_contacto %}
+          <div class="small mt-2">
+            {% if config.whatsapp %}<a href="https://wa.me/{{ config.whatsapp }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a>{% endif %}
+            {% if config.email_contacto %}<span class="ms-3"><i class="bi bi-envelope"></i> {{ config.email_contacto }}</span>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% if not user.is_authenticated %}
+    <div class="text-center mt-3 d-flex gap-2 justify-content-center">
+      <a href="{% url 'registro' %}" class="btn btn-primary">Probar {{ config.dias_prueba }} días gratis</a>
+      <a href="{% url 'login' %}" class="btn btn-outline-secondary">Ya tengo cuenta</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

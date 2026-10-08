@@ -1,12 +1,14 @@
 import io
 import shutil
 import tempfile
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from clientes.models import Cliente, Equipo
@@ -35,7 +37,9 @@ class Base(TestCase):
         shutil.rmtree(MEDIA_TMP, ignore_errors=True)
 
     def setUp(self):
-        self.taller = t = Establecimiento.objects.create(nombre='Taller Uno')
+        self.taller = t = Establecimiento.objects.create(
+            nombre='Taller Uno', licencia_hasta=timezone.now() + timedelta(days=30),
+        )
         self.admin = Usuario.objects.create_user(
             'a@x.com', 'Admin', 'clave-segura-1', rol='admin', establecimiento=t,
         )

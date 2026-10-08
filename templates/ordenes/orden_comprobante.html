@@ -48,6 +48,10 @@
     <tr><th>Recibido por</th><td>{{ orden.recepcionista }}</td></tr>
   </table>
 
+  <p class="small">
+    <b>Consulta el estado de tu equipo</b> en {{ request.scheme }}://{{ request.get_host }}{% url 'consulta_orden' %}
+    con el código <b>{{ orden.codigo_orden }}</b> y tu documento o teléfono.
+  </p>
   <p class="small text-body-secondary">
     Presente este comprobante para retirar su equipo. El costo estimado puede variar tras el diagnóstico;
     se solicitará su aprobación antes de realizar la reparación.

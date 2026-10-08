@@ -5,17 +5,24 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from cuentas.views import DashboardView, LoginView, RegistroView
+from ordenes.views import ConsultaOrdenView
+
+admin.site.site_header = 'Software Fix · Administración de la plataforma'
+admin.site.site_title = 'Software Fix'
+admin.site.index_title = 'Talleres, licencias y configuración'
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
     path('login/', LoginView.as_view(), name='login'),
     path('registro/', RegistroView.as_view(), name='registro'),
+    path('consulta/', ConsultaOrdenView.as_view(), name='consulta_orden'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('usuarios/', include('cuentas.urls')),
     path('clientes/', include('clientes.urls')),
     path('ordenes/', include('ordenes.urls')),
     path('inventario/', include('inventario.urls')),
     path('ventas/', include('ventas.urls')),
+    path('', include('licencias.urls')),
     path('admin/', admin.site.urls),
 ]
 

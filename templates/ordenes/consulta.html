@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Estado de mi orden{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center pt-3">
+  <div class="col-md-8 col-lg-6">
+    <div class="text-center mb-4">
+      <i class="bi bi-search display-5 text-primary"></i>
+      <h1 class="h3 mt-2">Consulta el estado de tu equipo</h1>
+      <p class="text-body-secondary">Escribe el código que aparece en tu comprobante de recepción.</p>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include '_campos.html' %}
+          <button class="btn btn-primary w-100 mt-3">Consultar</button>
+        </form>
+        {% if error %}<div class="alert alert-warning mt-3 mb-0">{{ error }}</div>{% endif %}
+      </div>
+    </div>
+
+    {% if orden %}
+    <div class="card mb-3">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="small text-body-secondary">{{ orden.establecimiento.nombre }}</div>
+            <h2 class="h4 mb-0">{{ orden.codigo_orden }}</h2>
+            <div>{{ orden.equipo }}</div>
+          </div>
+          <span class="badge text-bg-{{ orden.estado|color_estado }} fs-6">{{ orden.get_estado_display }}</span>
+        </div>
+
+        <ol class="list-unstyled mb-3">
+          {% for nombre, estado in pasos %}
+          <li class="d-flex align-items-center gap-2 py-1 {% if estado == 'pendiente' %}text-body-secondary{% endif %}">
+            {% if estado == 'hecho' %}<i class="bi bi-check-circle-fill text-success"></i>
+            {% elif estado == 'actual' %}<i class="bi bi-arrow-right-circle-fill text-primary"></i>
+            {% elif estado == 'cancelado' %}<i class="bi bi-x-circle-fill text-danger"></i>
+            {% else %}<i class="bi bi-circle"></i>{% endif %}
+            <span class="{% if estado == 'actual' %}fw-semibold{% endif %}">{{ nombre }}</span>
+          </li>
+          {% endfor %}
+        </ol>
+
+        <dl class="row small mb-0">
+          <dt class="col-5">Recibido</dt><dd class="col-7">{{ orden.fecha_ingreso|date:"d/m/Y H:i" }}</dd>
+          {% if orden.fecha_promesa and not orden.cerrada %}<dt class="col-5">Fecha estimada</dt><dd class="col-7">{{ orden.fecha_promesa|date:"d/m/Y H:i" }}</dd>{% endif %}
+          {% if orden.fecha_entrega %}<dt class="col-5">Entregado</dt><dd class="col-7">{{ orden.fecha_entrega|date:"d/m/Y H:i" }}</dd>{% endif %}
+          <dt class="col-5">Falla reportada</dt><dd class="col-7">{{ orden.falla_reportada|linebreaksbr }}</dd>
+          {% if orden.diagnostico_tecnico %}<dt class="col-5">Diagnóstico</dt><dd class="col-7">{{ orden.diagnostico_tecnico|linebreaksbr }}</dd>{% endif %}
+          {% if orden.costo_final %}<dt class="col-5">Valor a pagar</dt><dd class="col-7 fw-semibold">{{ orden.costo_final|dinero }}</dd>
+          {% elif orden.costo_estimado %}<dt class="col-5">Costo estimado</dt><dd class="col-7">{{ orden.costo_estimado|dinero }}</dd>{% endif %}
+        </dl>
+
+        {% if orden.estado == 'listo_entrega' %}
+          <div class="alert alert-success mt-3 mb-0"><i class="bi bi-bag-check"></i> ¡Tu equipo está listo! Puedes pasar a recogerlo.</div>
+        {% elif orden.estado == 'esperando_aprobacion' %}
+          <div class="alert alert-warning mt-3 mb-0"><i class="bi bi-telephone"></i> Necesitamos tu aprobación para continuar con la reparación. Comunícate con el taller.</div>
+        {% endif %}
+        {% if orden.establecimiento.telefono %}
+          <div class="small text-body-secondary mt-3"><i class="bi bi-telephone"></i> Taller: {{ orden.establecimiento.telefono }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="text-center"><a href="{% url 'login' %}" class="small">Volver</a></p>
+  </div>
+</div>
+{% endblock %}

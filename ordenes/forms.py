@@ -174,3 +174,22 @@ class RepuestoForm(BootstrapMixin, forms.Form):
             .order_by('-es_repuesto', 'nombre')
         )
         self.fields['producto'].label_from_instance = etiqueta_producto
+
+
+class ConsultaOrdenForm(BootstrapMixin, forms.Form):
+    """Consulta pública: el cliente identifica su orden con el código y su documento o teléfono."""
+
+    codigo = forms.CharField(
+        label='Código de la orden', max_length=20,
+        widget=forms.TextInput(attrs={'placeholder': 'ORD-2026-0001', 'autocapitalize': 'characters'}),
+    )
+    dato = forms.CharField(
+        label='Tu documento o teléfono', max_length=30,
+        help_text='El mismo que diste al dejar el equipo.',
+    )
+
+    def clean_codigo(self):
+        return self.cleaned_data['codigo'].strip().upper()
+
+    def clean_dato(self):
+        return ''.join(self.cleaned_data['dato'].split())

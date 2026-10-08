@@ -29,6 +29,10 @@
         {% if user.es_admin %}
         <li class="nav-item"><a class="nav-link {% if 'usuario' in r %}active{% endif %}" href="{% url 'usuario_list' %}">Usuarios</a></li>
         <li class="nav-item"><a class="nav-link {% if 'establecimiento' in r %}active{% endif %}" href="{% url 'establecimiento_update' %}">Mi taller</a></li>
+        <li class="nav-item"><a class="nav-link {% if r == 'mi_licencia' %}active{% endif %}" href="{% url 'mi_licencia' %}">Licencia</a></li>
+        {% endif %}
+        {% if user.is_superuser %}
+        <li class="nav-item"><a class="nav-link text-warning" href="{% url 'admin:index' %}"><i class="bi bi-gear"></i> Plataforma</a></li>
         {% endif %}
       </ul>
       {% endwith %}
@@ -43,6 +47,14 @@
 </nav>
 {% endif %}
 
+{% if licencia_avisar and licencia_vigente and request.resolver_match.url_name != 'mi_licencia' %}
+<div class="alert alert-warning rounded-0 mb-0 py-2 text-center small d-print-none">
+  <i class="bi bi-clock-history"></i>
+  {% if licencia_en_prueba %}Tu prueba gratis{% else %}Tu licencia{% endif %} vence en
+  <b>{{ licencia_dias }} día{{ licencia_dias|pluralize }}</b>.
+  {% if user.es_admin %}<a href="{% url 'mi_licencia' %}" class="alert-link">Renovar ahora</a>{% else %}Avisa al administrador del taller.{% endif %}
+</div>
+{% endif %}
 <main class="container-lg py-4">
   {% for m in messages %}
     <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} alert-dismissible fade show d-print-none">

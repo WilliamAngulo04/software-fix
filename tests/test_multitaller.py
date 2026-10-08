@@ -58,7 +58,7 @@ class AislamientoTests(Base):
 
     def setUp(self):
         super().setUp()
-        o = Establecimiento.objects.create(nombre='Taller Dos')
+        o = Establecimiento.objects.create(nombre='Taller Dos', licencia_hasta=self.taller.licencia_hasta)
         self.admin2 = Usuario.objects.create_user('a2@x.com', 'Admin2', CLAVE, rol='admin', establecimiento=o)
         self.cliente2 = Cliente.objects.create(establecimiento=o, nombre='Beto', telefono='1', documento_id='123')
         self.equipo2 = Equipo.objects.create(cliente=self.cliente2, tipo_dispositivo='laptop', marca='HP', modelo='X')

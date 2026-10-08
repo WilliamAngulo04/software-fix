@@ -28,7 +28,11 @@
         </form>
       </div>
     </div>
-    <p class="text-center mt-3">¿Tienes un taller? <a href="{% url 'registro' %}">Regístralo gratis</a></p>
+    <a href="{% url 'consulta_orden' %}" class="btn btn-outline-primary w-100 mt-3">
+      <i class="bi bi-search"></i> Consultar el estado de mi orden
+    </a>
+    <p class="text-center mt-3 mb-1"><a href="{% url 'planes' %}" class="fw-semibold">Adquiere tu licencia aquí</a></p>
+    <p class="text-center small">¿Tienes un taller? <a href="{% url 'registro' %}">Pruébalo gratis</a></p>
     <p class="text-center small text-body-secondary">Si eres técnico o recepcionista, pide tu cuenta al administrador de tu taller.</p>
   </div>
 </div>

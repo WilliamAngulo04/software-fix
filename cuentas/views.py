@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.generic import CreateView, FormView, ListView, TemplateView, UpdateView
 
 from inventario.models import ProductoInventario
+from licencias import services as licencias
 from ordenes.models import OrdenServicio
 from ventas.models import Venta
 
@@ -38,11 +39,16 @@ class RegistroView(FormView):
     def form_valid(self, form):
         datos = form.cleaned_data
         taller = Establecimiento.objects.create(nombre=datos['taller'], telefono=datos['telefono_taller'] or None)
+        licencias.iniciar_prueba(taller)
         usuario = Usuario.objects.create_user(
             datos['email'], datos['nombre'], datos['password1'], rol=Usuario.Rol.ADMIN, establecimiento=taller,
         )
         login(self.request, usuario, backend='django.contrib.auth.backends.ModelBackend')
-        messages.success(self.request, f'¡Bienvenido! {taller.nombre} quedó registrado. Empieza creando a tu equipo de trabajo.')
+        messages.success(
+            self.request,
+            f'¡Bienvenido! {taller.nombre} quedó registrado con {taller.dias_restantes} días de prueba gratis. '
+            'Empieza creando a tu equipo de trabajo.',
+        )
         return redirect('usuario_list')
 
 

@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -14,7 +15,7 @@ from cuentas.permisos import ADMIN, RECEPCION, TECNICO, RolRequeridoMixin
 
 from . import services
 from .forms import (
-    MAX_FOTOS_RECEPCION, EvidenciaForm, FotosRecepcionForm, OrdenForm, OrdenGestionForm, RecepcionForm, RepuestoForm,
+    MAX_FOTOS_RECEPCION, ConsultaOrdenForm, EvidenciaForm, FotosRecepcionForm, OrdenForm, OrdenGestionForm, RecepcionForm, RepuestoForm,
 )
 from .models import DetalleReparacionRepuesto, EvidenciaFotografica, OrdenServicio
 
@@ -271,3 +272,55 @@ class OrdenComprobanteView(RolRequeridoMixin, DetailView):
 
     def get_queryset(self):
         return super().get_queryset().select_related('equipo__cliente', 'recepcionista', 'establecimiento')
+
+
+class ConsultaOrdenView(View):
+    """Página pública para que el cliente vea el estado de su orden sin iniciar sesión."""
+
+    template_name = 'ordenes/consulta.html'
+    MAX_INTENTOS = 10
+    VENTANA_SEGUNDOS = 15 * 60
+
+    def get(self, request):
+        return render(request, self.template_name, {'form': ConsultaOrdenForm()})
+
+    def post(self, request):
+        form = ConsultaOrdenForm(request.POST)
+        ctx = {'form': form}
+        if form.is_valid():
+            # Detrás del proxy de Vercel la IP real llega en X-Real-IP.
+            ip = request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR', '')
+            clave = f'consulta-orden:{ip}'
+            intentos = cache.get(clave, 0)
+            if intentos >= self.MAX_INTENTOS:
+                ctx['error'] = 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'
+            else:
+                codigo, dato = form.cleaned_data['codigo'], form.cleaned_data['dato']
+                orden = (
+                    OrdenServicio.objects
+                    .select_related('equipo__cliente', 'establecimiento')
+                    .filter(codigo_orden__iexact=codigo)
+                    .filter(Q(equipo__cliente__documento_id=dato) | Q(equipo__cliente__telefono=dato))
+                    .first()
+                )
+                if orden:
+                    cache.delete(clave)
+                    ctx['orden'] = orden
+                    ctx['pasos'] = pasos_orden(orden)
+                else:
+                    cache.set(clave, intentos + 1, self.VENTANA_SEGUNDOS)
+                    ctx['error'] = 'No encontramos una orden con esos datos. Revisa el código y el documento o teléfono.'
+        return render(request, self.template_name, ctx)
+
+
+def pasos_orden(orden):
+    """Línea de tiempo del estado para mostrar al cliente."""
+    E = OrdenServicio.Estado
+    flujo = [E.RECIBIDO, E.EN_DIAGNOSTICO, E.ESPERANDO_APROBACION, E.EN_REPARACION, E.LISTO_ENTREGA, E.ENTREGADO]
+    if orden.estado == E.CANCELADO:
+        return [(E.RECIBIDO.label, 'hecho'), (E.CANCELADO.label, 'cancelado')]
+    actual = flujo.index(orden.estado)
+    return [
+        (paso.label, 'hecho' if i < actual or orden.estado == E.ENTREGADO else 'actual' if i == actual else 'pendiente')
+        for i, paso in enumerate(flujo)
+    ]
