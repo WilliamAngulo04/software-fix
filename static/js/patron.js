@@ -79,6 +79,11 @@
     svg.addEventListener('pointerup', terminar);
     svg.addEventListener('pointercancel', terminar);
     editor.querySelector('.patron-limpiar').addEventListener('click', () => { secuencia = []; pintar(); });
+    // Permite que otra parte de la página cargue un patrón guardado (ej. "14789").
+    editor.establecerPatron = (valor) => {
+      secuencia = String(valor || '').split('').map(Number).filter(Boolean);
+      pintar();
+    };
     pintar();
   }
 

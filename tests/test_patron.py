@@ -58,6 +58,35 @@ class PatronEnOrdenTests(Base):
         self.assertContains(r, 'al menos 4 puntos')
         self.assertEqual(OrdenServicio.objects.count(), antes)
 
+    def test_equipo_registrado_muestra_y_actualiza_desbloqueo(self):
+        self.equipo.clave_patron = '1111'
+        self.equipo.patron = '1235'
+        self.equipo.save()
+        self.client.force_login(self.recepcion)
+
+        r = self.client.get(reverse('orden_create'))
+        # El formulario trae los datos guardados para cargarlos al elegir el equipo.
+        self.assertContains(r, 'desbloqueo-existente')
+        self.assertContains(r, '"patron": "1235"')
+
+        self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'existente', 'cliente': self.cliente.pk,
+            'modo_equipo': 'existente', 'equipo': self.equipo.pk,
+            'clave_existente': '2222', 'patron_existente': '75319',
+            'falla_reportada': 'x', 'costo_estimado': '0',
+        })
+        self.equipo.refresh_from_db()
+        self.assertEqual((self.equipo.clave_patron, self.equipo.patron), ('2222', '75319'))
+
+    def test_equipo_registrado_con_patron_invalido(self):
+        self.client.force_login(self.recepcion)
+        r = self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'existente', 'cliente': self.cliente.pk,
+            'modo_equipo': 'existente', 'equipo': self.equipo.pk,
+            'patron_existente': '11', 'falla_reportada': 'x', 'costo_estimado': '0',
+        })
+        self.assertContains(r, 'no puede repetir puntos')
+
     def test_editar_equipo_conserva_el_patron(self):
         self.equipo.patron = '3578'
         self.equipo.save()

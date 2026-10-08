@@ -40,6 +40,19 @@
             {{ recepcion.equipo }}
             <div class="form-text" id="sin-equipos" hidden>Este cliente no tiene equipos registrados: elige "Equipo nuevo".</div>
             {% for e in recepcion.equipo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <div class="row g-3 mt-1" id="desbloqueo-existente">
+              <div class="col-md-6">
+                <label class="form-label" for="{{ recepcion.clave_existente.id_for_label }}">{{ recepcion.clave_existente.label }}</label>
+                {{ recepcion.clave_existente }}
+                <div class="form-text">{{ recepcion.clave_existente.help_text }}</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">{{ recepcion.patron_existente.label }}</label>
+                {{ recepcion.patron_existente }}
+                <div class="form-text">{{ recepcion.patron_existente.help_text }}</div>
+                {% for e in recepcion.patron_existente.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+              </div>
+            </div>
           </div>
           <div id="equipo-nuevo">{% include '_campos.html' with form=equipo_form %}</div>
         </div>
@@ -105,13 +118,14 @@
     let visibles = 0;
     for (const opcion of selEquipo.options) {
       if (!opcion.value) continue;
-      const mostrarOpcion = String(equipoDe[opcion.value]) === cliente;
+      const mostrarOpcion = String(equipoDe[opcion.value]?.cliente) === cliente;
       opcion.hidden = !mostrarOpcion;
       if (mostrarOpcion) visibles++;
       else if (opcion.selected) selEquipo.value = '';
     }
     if (visibles === 1 && !selEquipo.value) {
       selEquipo.value = [...selEquipo.options].find((o) => o.value && !o.hidden).value;
+      cargarDesbloqueo();
     }
     $('#sin-equipos').hidden = !(cliente && visibles === 0);
     return visibles;
@@ -139,6 +153,17 @@
       if (opcion.value) opcion.hidden = !opcion.text.toLowerCase().includes(texto);
     }
   });
+
+  // Al elegir un equipo ya registrado se cargan su clave y su patrón guardados.
+  const inputClave = $('#{{ recepcion.clave_existente.id_for_label }}');
+  const editorPatron = $('#desbloqueo-existente .patron-editor');
+  function cargarDesbloqueo() {
+    const datos = equipoDe[selEquipo.value] || { clave: '', patron: '' };
+    inputClave.value = datos.clave;
+    editorPatron.establecerPatron(datos.patron);
+  }
+  selEquipo.addEventListener('change', cargarDesbloqueo);
+  {% if not recepcion.is_bound %}if (selEquipo.value) cargarDesbloqueo();{% endif %}
 
   selCliente.addEventListener('change', () => {
     // Si el cliente no tiene equipos, pasar directo a "Equipo nuevo".

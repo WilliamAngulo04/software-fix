@@ -1,5 +1,6 @@
 from django import forms
 
+from clientes import patron
 from clientes.models import Cliente, Equipo
 from config.estilos import BootstrapMixin, FechaHoraInput
 from cuentas.models import Usuario
@@ -32,6 +33,14 @@ class RecepcionForm(BootstrapMixin, forms.Form):
         choices=[(EXISTENTE, 'Equipo ya registrado'), (NUEVO, 'Equipo nuevo')], widget=forms.RadioSelect,
     )
     equipo = forms.ModelChoiceField(queryset=Equipo.objects.none(), required=False, label='Equipo')
+    # Desbloqueo del equipo ya registrado: se muestran sus datos guardados y se pueden actualizar.
+    clave_existente = forms.CharField(
+        label='Clave / PIN', max_length=100, required=False, help_text='PIN o contraseña de desbloqueo, si tiene.',
+    )
+    patron_existente = forms.CharField(
+        label='Patrón de desbloqueo', max_length=9, required=False, widget=patron.PatronInput(),
+        help_text='Si el equipo se desbloquea con patrón, dibújalo aquí.',
+    )
 
     def __init__(self, *args, establecimiento, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,6 +55,9 @@ class RecepcionForm(BootstrapMixin, forms.Form):
         hay_clientes = self.fields['cliente'].queryset.exists()
         self.fields['modo_cliente'].initial = self.EXISTENTE if hay_clientes else self.NUEVO
         self.fields['modo_equipo'].initial = self.EXISTENTE if hay_clientes else self.NUEVO
+
+    def clean_patron_existente(self):
+        return patron.validar(self.cleaned_data.get('patron_existente'))
 
     def clean(self):
         datos = super().clean()

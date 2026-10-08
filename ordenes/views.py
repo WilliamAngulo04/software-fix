@@ -84,10 +84,13 @@ class OrdenCreateView(RolRequeridoMixin, View):
 
     def mostrar(self, request, forms):
         recepcion = forms['recepcion']
-        # Relación equipo → cliente para filtrar la lista de equipos en el navegador.
+        # Cliente y datos de desbloqueo de cada equipo, para filtrar la lista y rellenar
+        # la clave y el patrón en el navegador al elegir un equipo ya registrado.
         equipos_por_cliente = {
-            str(pk): cliente_id
-            for pk, cliente_id in recepcion.fields['equipo'].queryset.values_list('pk', 'cliente_id')
+            str(pk): {'cliente': cliente_id, 'clave': clave or '', 'patron': patron or ''}
+            for pk, cliente_id, clave, patron in recepcion.fields['equipo'].queryset.values_list(
+                'pk', 'cliente_id', 'clave_patron', 'patron',
+            )
         }
         return render(request, self.template_name, {
             **forms, 'equipos_por_cliente': equipos_por_cliente, 'max_fotos': MAX_FOTOS_RECEPCION,
@@ -137,6 +140,10 @@ class OrdenCreateView(RolRequeridoMixin, View):
                 equipo = equipo_form.save()
             else:
                 equipo = datos['equipo']
+                # Datos de desbloqueo confirmados o actualizados en la recepción.
+                equipo.clave_patron = datos['clave_existente'] or None
+                equipo.patron = datos['patron_existente'] or None
+                equipo.save(update_fields=['clave_patron', 'patron'])
             orden = orden_form.save(commit=False)
             orden.establecimiento = self.establecimiento
             orden.equipo = equipo
