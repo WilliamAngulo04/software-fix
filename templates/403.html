@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block titulo %}Sin permiso{% endblock %}
+{% block contenido %}
+<div class="text-center py-5">
+  <i class="bi bi-shield-lock display-1 text-body-secondary"></i>
+  <h1 class="h3 mt-3">No tienes permiso para ver esta página</h1>
+  <p class="text-body-secondary">Tu rol no tiene acceso a esta sección.</p>
+  <a href="{% url 'dashboard' %}" class="btn btn-primary">Volver al inicio</a>
+</div>
+{% endblock %}

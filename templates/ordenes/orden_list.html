@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Órdenes de servicio{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Órdenes de servicio</h1>
+  {% if not user.es_tecnico %}
+    <a href="{% url 'orden_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nueva orden</a>
+  {% endif %}
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-5"><input type="search" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Código, cliente, documento, marca, modelo o IMEI"></div>
+  <div class="col-md-3">
+    <select name="estado" class="form-select" onchange="this.form.submit()">
+      <option value="">Todos los estados</option>
+      <option value="abiertas" {% if request.GET.estado == 'abiertas' %}selected{% endif %}>Solo abiertas</option>
+      {% for valor, etiqueta in estados %}
+        <option value="{{ valor }}" {% if request.GET.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3 d-flex align-items-center">
+    {% if user.es_tecnico %}
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="mias" value="1" id="mias" {% if request.GET.mias %}checked{% endif %} onchange="this.form.submit()">
+      <label class="form-check-label" for="mias">Solo asignadas a mí</label>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-md-1"><button class="btn btn-outline-secondary w-100"><i class="bi bi-search"></i></button></div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico</th><th>Estado</th><th>Ingreso</th><th>Promesa</th></tr></thead>
+      <tbody>
+      {% for o in ordenes %}
+        <tr onclick="location.href='{% url 'orden_detail' o.pk %}'" style="cursor:pointer">
+          <td class="fw-semibold text-nowrap">{{ o.codigo_orden }}</td>
+          <td>{{ o.equipo.cliente.nombre }}</td>
+          <td>{{ o.equipo }}</td>
+          <td>{% if o.tecnico %}{{ o.tecnico }}{% else %}<span class="text-body-secondary">Sin asignar</span>{% endif %}</td>
+          <td><span class="badge text-bg-{{ o.estado|color_estado }}">{{ o.get_estado_display }}</span></td>
+          <td class="small text-nowrap">{{ o.fecha_ingreso|date:"d/m/Y" }}</td>
+          <td class="small text-nowrap {% if o.fecha_promesa and o.fecha_promesa < ahora and not o.cerrada %}vencida{% endif %}">{{ o.fecha_promesa|date:"d/m H:i"|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-body-secondary py-4">No se encontraron órdenes.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include '_paginacion.html' %}
+{% endblock %}

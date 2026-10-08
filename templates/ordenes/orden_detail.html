@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}{{ orden.codigo_orden }}{% endblock %}
+{% block contenido %}
+<a href="{% url 'orden_list' %}?estado=abiertas" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> Órdenes</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start mt-2 mb-3 gap-2">
+  <div>
+    <h1 class="h3 mb-1">{{ orden.codigo_orden }}
+      <span class="badge text-bg-{{ orden.estado|color_estado }} align-middle fs-6">{{ orden.get_estado_display }}</span>
+    </h1>
+    <div class="text-body-secondary">Ingresó el {{ orden.fecha_ingreso|date:"d/m/Y H:i" }} · Recibió {{ orden.recepcionista }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'orden_comprobante' orden.pk %}" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer"></i> Comprobante</a>
+    {% if puede_cobrar %}
+      <a href="{% url 'venta_create' %}?orden={{ orden.pk }}" class="btn btn-success"><i class="bi bi-cash-coin"></i> Cobrar y entregar</a>
+    {% endif %}
+    {% if orden.esta_cobrada and not user.es_tecnico %}
+      <a href="{% url 'venta_detail' orden.venta.pk %}" class="btn btn-outline-success"><i class="bi bi-receipt"></i> Ver venta</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Columna izquierda: información -->
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-6 mb-3">
+            <div class="small text-body-secondary">Cliente</div>
+            <a href="{% url 'cliente_detail' orden.cliente.pk %}" class="fw-semibold">{{ orden.cliente.nombre }}</a>
+            <div class="small"><i class="bi bi-telephone"></i> {{ orden.cliente.telefono }}</div>
+          </div>
+          <div class="col-sm-6 mb-3">
+            <div class="small text-body-secondary">Equipo</div>
+            <div class="fw-semibold">{{ orden.equipo }}</div>
+            <div class="small">Serie/IMEI: {{ orden.equipo.numero_serie_imei|default:"—" }}</div>
+            <div class="small">Clave/patrón: {{ orden.equipo.clave_patron|default:"—" }}</div>
+          </div>
+          <div class="col-sm-6 mb-3">
+            <div class="small text-body-secondary">Técnico</div>
+            <div>{{ orden.tecnico|default:"Sin asignar" }}</div>
+          </div>
+          <div class="col-sm-6 mb-3">
+            <div class="small text-body-secondary">Fecha prometida</div>
+            <div>{{ orden.fecha_promesa|date:"d/m/Y H:i"|default:"—" }}</div>
+            {% if orden.fecha_entrega %}<div class="small">Entregado: {{ orden.fecha_entrega|date:"d/m/Y H:i" }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="small text-body-secondary">Falla reportada</div>
+          <div>{{ orden.falla_reportada|linebreaksbr }}</div>
+        </div>
+        <div class="mb-3">
+          <div class="small text-body-secondary">Observaciones estéticas</div>
+          <div>{{ orden.observaciones_esteticas|default:"—"|linebreaksbr }}</div>
+        </div>
+        <div>
+          <div class="small text-body-secondary">Diagnóstico técnico</div>
+          <div>{{ orden.diagnostico_tecnico|default:"Pendiente"|linebreaksbr }}</div>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent d-flex justify-content-around text-center">
+        <div><div class="small text-body-secondary">Estimado</div><div class="fw-semibold">{{ orden.costo_estimado|dinero }}</div></div>
+        <div><div class="small text-body-secondary">Repuestos</div><div class="fw-semibold">{{ orden.total_repuestos|dinero }}</div></div>
+        <div><div class="small text-body-secondary">Costo final</div><div class="fw-semibold fs-5">{{ orden.costo_final|dinero }}</div></div>
+      </div>
+    </div>
+
+    <!-- Repuestos -->
+    <div class="card mb-3" id="repuestos">
+      <div class="card-header bg-transparent fw-semibold">Repuestos usados</div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th><th></th></tr></thead>
+          <tbody>
+          {% for r in repuestos %}
+            <tr>
+              <td>{{ r.producto.nombre }}</td>
+              <td class="text-center">{{ r.cantidad }}</td>
+              <td class="text-end">{{ r.precio_unitario|dinero }}</td>
+              <td class="text-end">{{ r.subtotal|dinero }}</td>
+              <td class="text-end">
+                {% if puede_repuestos %}
+                <form method="post" action="{% url 'repuesto_quitar' orden.pk r.pk %}" onsubmit="return confirm('¿Quitar este repuesto y devolverlo al inventario?')">
+                  {% csrf_token %}<button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="text-center text-body-secondary py-3">No se han usado repuestos.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if puede_repuestos %}
+      <div class="card-body border-top">
+        <form method="post" action="{% url 'repuesto_agregar' orden.pk %}" class="row g-2 align-items-end">
+          {% csrf_token %}
+          <div class="col-md-8"><label class="form-label small">Producto</label>{{ repuesto_form.producto }}</div>
+          <div class="col-md-2"><label class="form-label small">Cantidad</label>{{ repuesto_form.cantidad }}</div>
+          <div class="col-md-2"><button class="btn btn-outline-primary w-100">Agregar</button></div>
+        </form>
+        <div class="form-text">Al agregar un repuesto se descuenta del inventario.</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Evidencias -->
+    <div class="card" id="evidencias">
+      <div class="card-header bg-transparent fw-semibold">Evidencias fotográficas</div>
+      <div class="card-body">
+        <div class="row g-3">
+          {% for e in evidencias %}
+          <div class="col-6 col-md-4 evidencia">
+            <a href="{{ e.url_foto.url }}" target="_blank"><img src="{{ e.url_foto.url }}" alt="{{ e.descripcion }}"></a>
+            <div class="small mt-1"><span class="badge text-bg-light border">{{ e.get_momento_display }}</span></div>
+            <div class="small">{{ e.descripcion|default:"" }}</div>
+            <div class="small text-body-secondary">{{ e.usuario }} · {{ e.tomada_en|date:"d/m H:i" }}</div>
+          </div>
+          {% empty %}
+          <div class="col-12 text-center text-body-secondary">Aún no hay fotos.</div>
+          {% endfor %}
+        </div>
+        <form method="post" enctype="multipart/form-data" action="{% url 'evidencia_create' orden.pk %}" id="form-evidencia" class="row g-2 align-items-end mt-3 border-top pt-3">
+          {% csrf_token %}
+          <div class="col-md-3"><label class="form-label small">Momento</label>{{ evidencia_form.momento }}</div>
+          <div class="col-md-4"><label class="form-label small">Foto</label>{{ evidencia_form.url_foto }}</div>
+          <div class="col-md-3"><label class="form-label small">Descripción</label>{{ evidencia_form.descripcion }}</div>
+          <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-camera"></i> Subir</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Columna derecha: gestión -->
+  <div class="col-lg-5">
+    {% if puede_gestionar %}
+    <div class="card position-sticky" style="top: 1rem">
+      <div class="card-header bg-transparent fw-semibold">Actualizar orden</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'orden_actualizar' orden.pk %}">
+          {% csrf_token %}
+          {% for campo in gestion_form %}
+            <div class="mb-3">
+              <label class="form-label small" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+              {{ campo }}
+            </div>
+          {% endfor %}
+          <div class="form-text mb-3">
+            El estado <b>Entregado</b> se asigna automáticamente al cobrar la orden.
+            Sugerencia: el costo final suele ser mano de obra + repuestos ({{ orden.total_repuestos|dinero }}).
+          </div>
+          <button class="btn btn-primary w-100"><i class="bi bi-save"></i> Guardar cambios</button>
+        </form>
+      </div>
+    </div>
+    {% elif orden.cerrada %}
+    <div class="alert alert-secondary">Esta orden está <b>{{ orden.get_estado_display|lower }}</b> y ya no se puede modificar.</div>
+    {% else %}
+    <div class="alert alert-info">Esta orden está asignada a otro técnico.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Reduce la foto a máx. 1600 px en JPEG antes de subirla: el servidor (Vercel) rechaza
+  // peticiones de más de 4,5 MB y las fotos de celular suelen pesar más.
+  document.getElementById('form-evidencia').addEventListener('submit', async (ev) => {
+    const form = ev.target;
+    const input = form.querySelector('input[type=file]');
+    const archivo = input.files[0];
+    if (!archivo || !archivo.type.startsWith('image/') || form.dataset.listo) return;
+    ev.preventDefault();
+    try {
+      const img = await createImageBitmap(archivo);
+      const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.82));
+      const nombre = archivo.name.replace(/\.[^.]+$/, '') + '.jpg';
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], nombre, { type: 'image/jpeg' }));
+      input.files = dt.files;
+    } catch (e) {
+      console.warn('No se pudo comprimir la imagen; se sube la original.', e);
+    }
+    form.dataset.listo = '1';
+    form.querySelector('button').disabled = true;
+    form.submit();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+  <div>
+    <h1 class="h3 mb-0">Hola, {{ user.nombre }}</h1>
+    <span class="text-body-secondary">{% now "l j \d\e F \d\e Y" %}</span>
+  </div>
+  <div class="d-flex gap-2">
+    {% if not user.es_tecnico %}
+      <a href="{% url 'cliente_create' %}" class="btn btn-outline-primary"><i class="bi bi-person-plus"></i> Nuevo cliente</a>
+      <a href="{% url 'orden_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nueva orden</a>
+      <a href="{% url 'venta_create' %}" class="btn btn-success"><i class="bi bi-cart-plus"></i> Nueva venta</a>
+    {% else %}
+      <a href="{% url 'orden_list' %}?estado=abiertas&mias=1" class="btn btn-primary"><i class="bi bi-wrench"></i> Mis órdenes</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-body-secondary small">Órdenes abiertas</div>
+      <div class="stat">{{ total_abiertas }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-body-secondary small">Vencidas (pasó la fecha prometida)</div>
+      <div class="stat {% if vencidas %}text-danger{% endif %}">{{ vencidas }}</div>
+    </div></div>
+  </div>
+  {% if not user.es_tecnico %}
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-body-secondary small">Ventas de hoy</div>
+      <div class="stat">{{ ventas_hoy_total|dinero }}</div>
+      <div class="small text-body-secondary">{{ ventas_hoy_cantidad }} transacciones</div>
+    </div></div>
+  </div>
+  {% endif %}
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-body-secondary small">Productos con stock bajo</div>
+      <div class="stat {% if stock_bajo %}text-warning{% endif %}">{{ stock_bajo|length }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header bg-transparent fw-semibold">
+        {% if user.es_tecnico %}Mis órdenes en curso{% else %}Órdenes en curso{% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Código</th><th>Cliente / Equipo</th><th>Estado</th><th>Promesa</th></tr></thead>
+          <tbody>
+          {% for o in ordenes_recientes %}
+            <tr onclick="location.href='{% url 'orden_detail' o.pk %}'" style="cursor:pointer">
+              <td class="fw-semibold">{{ o.codigo_orden }}</td>
+              <td>{{ o.equipo.cliente.nombre }}<div class="small text-body-secondary">{{ o.equipo }}</div></td>
+              <td><span class="badge text-bg-{{ o.estado|color_estado }}">{{ o.get_estado_display }}</span></td>
+              <td class="small">{{ o.fecha_promesa|date:"d/m H:i"|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-center text-body-secondary py-4">No hay órdenes en curso.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header bg-transparent fw-semibold">Órdenes por estado</div>
+      <ul class="list-group list-group-flush">
+        {% for valor, etiqueta, n in por_estado %}
+          <a href="{% url 'orden_list' %}?estado={{ valor }}" class="list-group-item list-group-item-action d-flex justify-content-between">
+            <span><span class="badge text-bg-{{ valor|color_estado }} me-2">&nbsp;</span>{{ etiqueta }}</span>
+            <span class="fw-semibold">{{ n }}</span>
+          </a>
+        {% endfor %}
+      </ul>
+    </div>
+    {% if stock_bajo %}
+    <div class="card">
+      <div class="card-header bg-transparent fw-semibold text-warning-emphasis"><i class="bi bi-exclamation-triangle"></i> Stock bajo</div>
+      <ul class="list-group list-group-flush">
+        {% for p in stock_bajo %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>{{ p.nombre }}</span>
+            <span class="badge text-bg-{% if p.stock_actual == 0 %}danger{% else %}warning{% endif %}">{{ p.stock_actual }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

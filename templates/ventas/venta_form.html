@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Nueva venta{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="card">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-3">{% if orden %}Cobrar orden {{ orden.codigo_orden }}{% else %}Nueva venta{% endif %}</h1>
+
+        {% if orden %}
+        <div class="alert alert-light border">
+          <div class="d-flex justify-content-between">
+            <div>
+              <div class="fw-semibold">{{ orden.cliente.nombre }} — {{ orden.equipo }}</div>
+              <div class="small text-body-secondary">Al registrar el pago la orden pasará a <b>Entregado</b>.</div>
+            </div>
+            <div class="text-end">
+              <div class="small text-body-secondary">Costo del servicio</div>
+              <div class="fs-5 fw-semibold">{{ orden.costo_final|dinero }}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <form method="post" id="form-venta">
+          {% csrf_token %}
+          {% include '_campos.html' %}
+
+          <h2 class="h6 mt-4">{% if orden %}Productos adicionales (opcional){% else %}Productos{% endif %}</h2>
+          {{ formset.management_form }}
+          {% for e in formset.non_form_errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          <div id="lineas">
+            {% for f in formset %}
+            <div class="row g-2 align-items-start mb-2 linea">
+              <div class="col-md-8">{{ f.producto }}{% for e in f.producto.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-3">{{ f.cantidad }}{% for e in f.cantidad.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+              <div class="col-md-1 d-flex align-items-center">{{ f.DELETE }}<span class="small ms-1">Quitar</span></div>
+            </div>
+            {% endfor %}
+          </div>
+          <template id="plantilla-linea">
+            <div class="row g-2 align-items-start mb-2 linea">
+              <div class="col-md-8">{{ formset.empty_form.producto }}</div>
+              <div class="col-md-3">{{ formset.empty_form.cantidad }}</div>
+              <div class="col-md-1 d-flex align-items-center">{{ formset.empty_form.DELETE }}<span class="small ms-1">Quitar</span></div>
+            </div>
+          </template>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="agregar-linea"><i class="bi bi-plus"></i> Agregar producto</button>
+
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-success"><i class="bi bi-check-lg"></i> Registrar venta</button>
+            <a href="{% if orden %}{% url 'orden_detail' orden.pk %}{% else %}{% url 'venta_list' %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById('agregar-linea').addEventListener('click', () => {
+    const total = document.getElementById('id_lineas-TOTAL_FORMS');
+    const html = document.getElementById('plantilla-linea').innerHTML.replace(/__prefix__/g, total.value);
+    document.getElementById('lineas').insertAdjacentHTML('beforeend', html);
+    total.value = parseInt(total.value) + 1;
+  });
+</script>
+{% endblock %}

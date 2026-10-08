@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load taller %}
+{% block titulo %}Ventas{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Ventas</h1>
+  <a href="{% url 'venta_create' %}" class="btn btn-success"><i class="bi bi-cart-plus"></i> Nueva venta</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3"><input type="search" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Cliente o código de orden"></div>
+  <div class="col-md-2"><input type="date" name="desde" value="{{ request.GET.desde }}" class="form-control" title="Desde"></div>
+  <div class="col-md-2"><input type="date" name="hasta" value="{{ request.GET.hasta }}" class="form-control" title="Hasta"></div>
+  <div class="col-md-3">
+    <select name="metodo" class="form-select">
+      <option value="">Todos los métodos</option>
+      {% for valor, etiqueta in metodos %}
+        <option value="{{ valor }}" {% if request.GET.metodo == valor %}selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100"><i class="bi bi-funnel"></i> Filtrar</button></div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Orden</th><th>Método</th><th>Registró</th><th class="text-end">Total</th></tr></thead>
+      <tbody>
+      {% for v in ventas %}
+        <tr onclick="location.href='{% url 'venta_detail' v.pk %}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ v.pk }}</td>
+          <td class="small text-nowrap">{{ v.fecha_venta|date:"d/m/Y H:i" }}</td>
+          <td>{{ v.cliente.nombre|default:"Mostrador" }}</td>
+          <td>{{ v.orden_servicio.codigo_orden|default:"—" }}</td>
+          <td>{{ v.get_metodo_pago_display }}</td>
+          <td>{{ v.usuario }}</td>
+          <td class="text-end fw-semibold">{{ v.total|dinero }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-body-secondary py-4">No hay ventas.</td></tr>
+      {% endfor %}
+      </tbody>
+      {% if ventas %}
+      <tfoot><tr><th colspan="6" class="text-end">Total ({{ page_obj.paginator.count }} ventas)</th><th class="text-end">{{ total_filtrado|dinero }}</th></tr></tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% include '_paginacion.html' %}
+{% endblock %}
