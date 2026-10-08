@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block titulo %}Nueva orden de servicio{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <h1 class="h3 mb-3">Nueva orden de servicio</h1>
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- 1. Cliente -->
+      <div class="card mb-3">
+        <div class="card-header bg-transparent fw-semibold"><span class="badge text-bg-primary me-2">1</span>Cliente</div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-4">
+            {% for opcion in recepcion.modo_cliente %}
+              <div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+            {% endfor %}
+          </div>
+          <div id="cliente-existente">
+            <label class="form-label" for="buscar-cliente">Cliente <span class="text-danger">*</span></label>
+            <input type="search" id="buscar-cliente" class="form-control mb-2" placeholder="Filtrar por nombre, documento o teléfono…">
+            {{ recepcion.cliente }}
+            {% for e in recepcion.cliente.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          <div id="cliente-nuevo">{% include '_campos.html' with form=cliente_form %}</div>
+        </div>
+      </div>
+
+      <!-- 2. Equipo -->
+      <div class="card mb-3">
+        <div class="card-header bg-transparent fw-semibold"><span class="badge text-bg-primary me-2">2</span>Equipo</div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-4" id="modo-equipo">
+            {% for opcion in recepcion.modo_equipo %}
+              <div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+            {% endfor %}
+          </div>
+          <div id="equipo-existente">
+            <label class="form-label" for="{{ recepcion.equipo.id_for_label }}">Equipo del cliente <span class="text-danger">*</span></label>
+            {{ recepcion.equipo }}
+            <div class="form-text" id="sin-equipos" hidden>Este cliente no tiene equipos registrados: elige "Equipo nuevo".</div>
+            {% for e in recepcion.equipo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          <div id="equipo-nuevo">{% include '_campos.html' with form=equipo_form %}</div>
+        </div>
+      </div>
+
+      <!-- 3. Orden -->
+      <div class="card mb-3">
+        <div class="card-header bg-transparent fw-semibold"><span class="badge text-bg-primary me-2">3</span>Servicio</div>
+        <div class="card-body">{% include '_campos.html' with form=orden_form %}</div>
+      </div>
+
+      <div class="d-flex gap-2 mb-4">
+        <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Crear orden</button>
+        <a href="{% url 'orden_list' %}?estado=abiertas" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+      <p class="small text-body-secondary">Después de crearla podrás subir las fotos de recepción e imprimir el comprobante.</p>
+    </form>
+  </div>
+</div>
+{{ equipos_por_cliente|json_script:"equipos-por-cliente" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const equipoDe = JSON.parse(document.getElementById('equipos-por-cliente').textContent);
+  const $ = (sel) => document.querySelector(sel);
+  const modo = (nombre) => document.querySelector(`input[name="${nombre}"]:checked`)?.value;
+  const selCliente = $('#{{ recepcion.cliente.id_for_label }}');
+  const selEquipo = $('#{{ recepcion.equipo.id_for_label }}');
+
+  function mostrar(id, visible) {
+    const caja = document.getElementById(id);
+    caja.hidden = !visible;
+    // Los campos ocultos no se envían, así no generan errores de validación.
+    caja.querySelectorAll('input, select, textarea').forEach((el) => { el.disabled = !visible; });
+  }
+
+  function filtrarEquipos() {
+    const cliente = selCliente.value;
+    let visibles = 0;
+    for (const opcion of selEquipo.options) {
+      if (!opcion.value) continue;
+      const mostrarOpcion = String(equipoDe[opcion.value]) === cliente;
+      opcion.hidden = !mostrarOpcion;
+      if (mostrarOpcion) visibles++;
+      else if (opcion.selected) selEquipo.value = '';
+    }
+    if (visibles === 1 && !selEquipo.value) {
+      selEquipo.value = [...selEquipo.options].find((o) => o.value && !o.hidden).value;
+    }
+    $('#sin-equipos').hidden = !(cliente && visibles === 0);
+    return visibles;
+  }
+
+  function actualizar() {
+    const clienteNuevo = modo('modo_cliente') === 'nuevo';
+    mostrar('cliente-existente', !clienteNuevo);
+    mostrar('cliente-nuevo', clienteNuevo);
+
+    // Un cliente nuevo siempre trae un equipo nuevo.
+    if (clienteNuevo) $('input[name="modo_equipo"][value="nuevo"]').checked = true;
+    $('#modo-equipo').hidden = clienteNuevo;
+
+    const equipoNuevo = modo('modo_equipo') === 'nuevo';
+    mostrar('equipo-existente', !equipoNuevo);
+    mostrar('equipo-nuevo', equipoNuevo);
+    if (!clienteNuevo) filtrarEquipos();
+  }
+
+  // Filtro rápido de la lista de clientes.
+  $('#buscar-cliente').addEventListener('input', (ev) => {
+    const texto = ev.target.value.toLowerCase();
+    for (const opcion of selCliente.options) {
+      if (opcion.value) opcion.hidden = !opcion.text.toLowerCase().includes(texto);
+    }
+  });
+
+  selCliente.addEventListener('change', () => {
+    // Si el cliente no tiene equipos, pasar directo a "Equipo nuevo".
+    if (filtrarEquipos() === 0 && selCliente.value) {
+      $('input[name="modo_equipo"][value="nuevo"]').checked = true;
+    } else if (selCliente.value) {
+      $('input[name="modo_equipo"][value="existente"]').checked = true;
+    }
+    actualizar();
+  });
+  document.querySelectorAll('input[name="modo_cliente"], input[name="modo_equipo"]')
+    .forEach((radio) => radio.addEventListener('change', actualizar));
+  actualizar();
+})();
+</script>
+{% endblock %}

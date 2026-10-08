@@ -1,6 +1,6 @@
 from django import forms
 
-from clientes.models import Equipo
+from clientes.models import Cliente, Equipo
 from config.estilos import BootstrapMixin, FechaHoraInput
 from cuentas.models import Usuario
 from inventario.models import ProductoInventario
@@ -16,25 +16,75 @@ def etiqueta_producto(p):
     return f'{p.nombre} — ${p.precio_venta:,.0f} (stock: {p.stock_actual})'
 
 
+class RecepcionForm(BootstrapMixin, forms.Form):
+    """
+    Primera parte de la recepción: decide si el cliente y el equipo ya existen o se
+    registran en ese momento (los datos nuevos los validan ClienteForm y EquipoForm).
+    """
+
+    EXISTENTE, NUEVO = 'existente', 'nuevo'
+
+    modo_cliente = forms.ChoiceField(
+        choices=[(EXISTENTE, 'Cliente registrado'), (NUEVO, 'Cliente nuevo')], widget=forms.RadioSelect,
+    )
+    cliente = forms.ModelChoiceField(queryset=Cliente.objects.none(), required=False, label='Cliente')
+    modo_equipo = forms.ChoiceField(
+        choices=[(EXISTENTE, 'Equipo ya registrado'), (NUEVO, 'Equipo nuevo')], widget=forms.RadioSelect,
+    )
+    equipo = forms.ModelChoiceField(queryset=Equipo.objects.none(), required=False, label='Equipo')
+
+    def __init__(self, *args, establecimiento, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(establecimiento=establecimiento)
+        self.fields['cliente'].label_from_instance = lambda c: ' · '.join(
+            filter(None, [c.nombre, c.documento_id, c.telefono])
+        )
+        self.fields['equipo'].queryset = Equipo.objects.filter(cliente__establecimiento=establecimiento)
+        self.fields['equipo'].label_from_instance = lambda e: (
+            f'{e}{f" · {e.numero_serie_imei}" if e.numero_serie_imei else ""}'
+        )
+        hay_clientes = self.fields['cliente'].queryset.exists()
+        self.fields['modo_cliente'].initial = self.EXISTENTE if hay_clientes else self.NUEVO
+        self.fields['modo_equipo'].initial = self.EXISTENTE if hay_clientes else self.NUEVO
+
+    def clean(self):
+        datos = super().clean()
+        cliente_nuevo = datos.get('modo_cliente') == self.NUEVO
+        if cliente_nuevo:
+            # Un cliente nuevo no tiene equipos registrados todavía.
+            datos['modo_equipo'] = self.NUEVO
+        elif not datos.get('cliente'):
+            self.add_error('cliente', 'Selecciona el cliente.')
+
+        if datos.get('modo_equipo') == self.EXISTENTE:
+            equipo = datos.get('equipo')
+            if not equipo:
+                self.add_error('equipo', 'Selecciona el equipo.')
+            elif datos.get('cliente') and equipo.cliente_id != datos['cliente'].pk:
+                self.add_error('equipo', 'Ese equipo no pertenece al cliente seleccionado.')
+        return datos
+
+
 class OrdenForm(BootstrapMixin, forms.ModelForm):
-    """Recepción de un equipo: crea la orden."""
+    """Datos de la orden en la recepción."""
 
     class Meta:
         model = OrdenServicio
-        fields = [
-            'equipo', 'tecnico', 'falla_reportada', 'observaciones_esteticas',
-            'costo_estimado', 'fecha_promesa',
-        ]
+        fields = ['tecnico', 'falla_reportada', 'observaciones_esteticas', 'costo_estimado', 'fecha_promesa']
+        labels = {'tecnico': 'Técnico asignado'}
         widgets = {'fecha_promesa': FechaHoraInput()}
 
-    def __init__(self, *args, establecimiento, cliente=None, **kwargs):
+    def __init__(self, *args, establecimiento, **kwargs):
         super().__init__(*args, **kwargs)
-        equipos = Equipo.objects.filter(cliente__establecimiento=establecimiento).select_related('cliente')
-        if cliente is not None:
-            equipos = equipos.filter(cliente=cliente)
-        self.fields['equipo'].queryset = equipos
-        self.fields['equipo'].label_from_instance = lambda e: f'{e.cliente.nombre} — {e}'
         self.fields['tecnico'].queryset = tecnicos_activos(establecimiento)
+        self.fields['tecnico'].empty_label = 'Sin asignar por ahora'
+        self.fields['falla_reportada'].widget.attrs['placeholder'] = 'Ej: no enciende, pantalla rota, no carga…'
+
+    def clean_costo_estimado(self):
+        costo = self.cleaned_data['costo_estimado']
+        if costo is not None and costo < 0:
+            raise forms.ValidationError('No puede ser negativo.')
+        return costo
 
 
 class OrdenGestionForm(BootstrapMixin, forms.ModelForm):
@@ -46,6 +96,7 @@ class OrdenGestionForm(BootstrapMixin, forms.ModelForm):
             'estado', 'tecnico', 'diagnostico_tecnico', 'observaciones_esteticas',
             'costo_estimado', 'costo_final', 'fecha_promesa',
         ]
+        labels = {'tecnico': 'Técnico'}
         widgets = {'fecha_promesa': FechaHoraInput()}
 
     def __init__(self, *args, puede_asignar=True, **kwargs):

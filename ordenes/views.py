@@ -1,17 +1,19 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView
+from django.views.generic import DetailView, ListView
 
+from clientes.forms import ClienteForm, EquipoForm
 from clientes.models import Cliente, Equipo
 from cuentas.permisos import ADMIN, RECEPCION, TECNICO, RolRequeridoMixin
 
 from . import services
-from .forms import EvidenciaForm, OrdenForm, OrdenGestionForm, RepuestoForm
+from .forms import EvidenciaForm, OrdenForm, OrdenGestionForm, RecepcionForm, RepuestoForm
 from .models import DetalleReparacionRepuesto, OrdenServicio
 
 
@@ -58,48 +60,84 @@ class OrdenListView(RolRequeridoMixin, ListView):
         return ctx
 
 
-class OrdenCreateView(RolRequeridoMixin, CreateView):
+class OrdenCreateView(RolRequeridoMixin, View):
+    """
+    Recepción de un equipo en una sola pantalla: cliente (registrado o nuevo),
+    equipo (registrado o nuevo) y datos de la orden.
+    """
+
     roles = (ADMIN, RECEPCION)
-    model = OrdenServicio
-    form_class = OrdenForm
-    template_name = 'form_generico.html'
+    template_name = 'ordenes/orden_form.html'
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['establecimiento'] = self.establecimiento
-        self.cliente = None
-        if self.request.GET.get('cliente'):
-            self.cliente = get_object_or_404(
-                Cliente, pk=self.request.GET['cliente'], establecimiento=self.establecimiento,
+    def formularios(self, datos=None, inicial=None):
+        e = self.establecimiento
+        return {
+            'recepcion': RecepcionForm(datos, establecimiento=e, initial=inicial),
+            'cliente_form': ClienteForm(datos, establecimiento=e, prefix='cli'),
+            'equipo_form': EquipoForm(datos, prefix='eq'),
+            'orden_form': OrdenForm(datos, establecimiento=e),
+        }
+
+    def mostrar(self, request, forms):
+        recepcion = forms['recepcion']
+        # Relación equipo → cliente para filtrar la lista de equipos en el navegador.
+        equipos_por_cliente = {
+            str(pk): cliente_id
+            for pk, cliente_id in recepcion.fields['equipo'].queryset.values_list('pk', 'cliente_id')
+        }
+        return render(request, self.template_name, {**forms, 'equipos_por_cliente': equipos_por_cliente})
+
+    def get(self, request):
+        inicial = {}
+        if request.GET.get('cliente'):
+            cliente = get_object_or_404(Cliente, pk=request.GET['cliente'], establecimiento=self.establecimiento)
+            inicial.update(modo_cliente=RecepcionForm.EXISTENTE, cliente=cliente)
+        if request.GET.get('equipo'):
+            equipo = get_object_or_404(
+                Equipo, pk=request.GET['equipo'], cliente__establecimiento=self.establecimiento,
             )
-            kwargs['cliente'] = self.cliente
-        return kwargs
-
-    def get_initial(self):
-        initial = super().get_initial()
-        if self.request.GET.get('equipo'):
-            initial['equipo'] = get_object_or_404(
-                Equipo, pk=self.request.GET['equipo'], cliente__establecimiento=self.establecimiento,
+            inicial.update(
+                modo_cliente=RecepcionForm.EXISTENTE, cliente=equipo.cliente,
+                modo_equipo=RecepcionForm.EXISTENTE, equipo=equipo,
             )
-        return initial
+        return self.mostrar(request, self.formularios(inicial=inicial))
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['titulo'] = 'Nueva orden de servicio'
-        if self.cliente:
-            ctx['titulo'] += f' — {self.cliente.nombre}'
-        ctx['ayuda'] = '¿El cliente o el equipo no existe? Regístralo primero en Clientes.'
-        return ctx
+    def post(self, request):
+        forms = self.formularios(request.POST)
+        recepcion, cliente_form, equipo_form, orden_form = (
+            forms['recepcion'], forms['cliente_form'], forms['equipo_form'], forms['orden_form'],
+        )
+        validos = [recepcion.is_valid(), orden_form.is_valid()]
+        if recepcion.is_valid():
+            datos = recepcion.cleaned_data
+            if datos['modo_cliente'] == RecepcionForm.NUEVO:
+                validos.append(cliente_form.is_valid())
+            if datos['modo_equipo'] == RecepcionForm.NUEVO:
+                validos.append(equipo_form.is_valid())
+        if not all(validos):
+            messages.error(request, 'Revisa los campos marcados en rojo.')
+            return self.mostrar(request, forms)
 
-    def form_valid(self, form):
-        form.instance.establecimiento = self.establecimiento
-        form.instance.recepcionista = self.request.user
-        respuesta = super().form_valid(form)
-        messages.success(self.request, f'Orden {self.object.codigo_orden} creada. Agrega las fotos de recepción.')
-        return respuesta
+        with transaction.atomic():
+            datos = recepcion.cleaned_data
+            if datos['modo_cliente'] == RecepcionForm.NUEVO:
+                cliente_form.instance.establecimiento = self.establecimiento
+                cliente = cliente_form.save()
+            else:
+                cliente = datos['cliente']
+            if datos['modo_equipo'] == RecepcionForm.NUEVO:
+                equipo_form.instance.cliente = cliente
+                equipo = equipo_form.save()
+            else:
+                equipo = datos['equipo']
+            orden = orden_form.save(commit=False)
+            orden.establecimiento = self.establecimiento
+            orden.equipo = equipo
+            orden.recepcionista = request.user
+            orden.save()
 
-    def get_success_url(self):
-        return reverse('orden_detail', args=[self.object.pk])
+        messages.success(request, f'Orden {orden.codigo_orden} creada. Agrega las fotos de recepción.')
+        return redirect('orden_detail', pk=orden.pk)
 
 
 class OrdenDetailView(RolRequeridoMixin, DetailView):

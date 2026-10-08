@@ -103,7 +103,10 @@ class AislamientoTests(Base):
         self.client.post(
             reverse('repuesto_agregar', args=[self.orden.pk]), {'producto': self.producto2.pk, 'cantidad': 1},
         )
-        self.client.post(reverse('orden_create'), {'equipo': self.equipo2.pk, 'falla_reportada': 'x'})
+        self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'existente', 'cliente': self.cliente2.pk,
+            'modo_equipo': 'existente', 'equipo': self.equipo2.pk, 'falla_reportada': 'x', 'costo_estimado': '0',
+        })
         self.producto2.refresh_from_db()
         self.assertEqual(self.producto2.stock_actual, 5)
         self.assertEqual(OrdenServicio.objects.filter(equipo=self.equipo2).count(), 1)

@@ -170,14 +170,66 @@ class VistasTests(Base):
                 with self.subTest(rol=usuario.rol, url=url, esperado=403):
                     self.assertEqual(self.client.get(url).status_code, 403)
 
-    def test_recepcion_crea_orden(self):
+    def test_recepcion_con_cliente_y_equipo_registrados(self):
         self.entrar(self.recepcion)
         r = self.client.post(reverse('orden_create'), {
-            'equipo': self.equipo.pk, 'falla_reportada': 'Pantalla rota', 'costo_estimado': '100',
+            'modo_cliente': 'existente', 'cliente': self.cliente.pk,
+            'modo_equipo': 'existente', 'equipo': self.equipo.pk,
+            'falla_reportada': 'Pantalla rota', 'costo_estimado': '100',
         })
         nueva = OrdenServicio.objects.latest('id')
         self.assertRedirects(r, reverse('orden_detail', args=[nueva.pk]))
         self.assertEqual(nueva.recepcionista, self.recepcion)
+        self.assertEqual(nueva.equipo, self.equipo)
+
+    def test_recepcion_con_cliente_y_equipo_nuevos(self):
+        self.entrar(self.recepcion)
+        r = self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'nuevo', 'cli-nombre': 'Pedro', 'cli-telefono': '311', 'cli-documento_id': '999',
+            # Aunque llegue "existente", un cliente nuevo siempre registra equipo nuevo.
+            'modo_equipo': 'existente',
+            'eq-tipo_dispositivo': 'tablet', 'eq-marca': 'Apple', 'eq-modelo': 'iPad 9', 'eq-clave_patron': '0000',
+            'tecnico': self.tecnico.pk, 'falla_reportada': 'No carga', 'costo_estimado': '50000',
+        })
+        nueva = OrdenServicio.objects.latest('id')
+        self.assertRedirects(r, reverse('orden_detail', args=[nueva.pk]))
+        self.assertEqual(nueva.cliente.nombre, 'Pedro')
+        self.assertEqual(nueva.cliente.establecimiento, self.taller)
+        self.assertEqual(str(nueva.equipo), 'Tablet Apple iPad 9')
+        self.assertEqual(nueva.tecnico, self.tecnico)
+
+    def test_recepcion_equipo_nuevo_para_cliente_registrado(self):
+        self.entrar(self.recepcion)
+        self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'existente', 'cliente': self.cliente.pk, 'modo_equipo': 'nuevo',
+            'eq-tipo_dispositivo': 'laptop', 'eq-marca': 'Dell', 'eq-modelo': 'XPS',
+            'falla_reportada': 'Teclado', 'costo_estimado': '0',
+        })
+        self.assertEqual(self.cliente.equipos.count(), 2)
+
+    def test_recepcion_con_errores_no_guarda_nada(self):
+        self.entrar(self.recepcion)
+        # Documento repetido, equipo de otro cliente y falta la falla.
+        otro = Cliente.objects.create(establecimiento=self.taller, nombre='Otro', telefono='1')
+        r = self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'nuevo', 'cli-nombre': 'X', 'cli-telefono': '1', 'cli-documento_id': '123',
+            'eq-tipo_dispositivo': 'celular', 'eq-marca': 'A', 'eq-modelo': 'B', 'costo_estimado': '0',
+        })
+        self.assertContains(r, 'Ya existe un cliente con este documento')
+        r = self.client.post(reverse('orden_create'), {
+            'modo_cliente': 'existente', 'cliente': otro.pk, 'modo_equipo': 'existente', 'equipo': self.equipo.pk,
+            'falla_reportada': 'x', 'costo_estimado': '0',
+        })
+        self.assertContains(r, 'Ese equipo no pertenece al cliente seleccionado')
+        self.assertEqual(OrdenServicio.objects.count(), 1)
+        self.assertEqual(Cliente.objects.count(), 2)
+
+    def test_formulario_en_espanol(self):
+        self.entrar(self.recepcion)
+        r = self.client.get(reverse('orden_create') + f'?equipo={self.equipo.pk}')
+        self.assertNotContains(r, 'Select an option')
+        self.assertContains(r, 'Técnico asignado')
+        self.assertContains(r, 'Sin asignar por ahora')
 
     def test_tecnico_actualiza_y_usa_repuesto(self):
         self.entrar(self.tecnico)
