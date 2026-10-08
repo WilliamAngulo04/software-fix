@@ -263,7 +263,7 @@ class RepuestoQuitarView(OrdenAccionMixin, View):
 
 
 class OrdenComprobanteView(RolRequeridoMixin, DetailView):
-    """Comprobante imprimible para entregar al cliente al recibir el equipo."""
+    """Comprobante de recepción para impresora térmica de 80 mm. Con ?imprimir=1 abre el diálogo de impresión."""
 
     model = OrdenServicio
     campo_establecimiento = 'establecimiento'
@@ -272,6 +272,12 @@ class OrdenComprobanteView(RolRequeridoMixin, DetailView):
 
     def get_queryset(self):
         return super().get_queryset().select_related('equipo__cliente', 'recepcionista', 'establecimiento')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['fotos_recepcion'] = self.object.evidencias.filter(momento=EvidenciaFotografica.Momento.RECEPCION).count()
+        ctx['autoimprimir'] = self.request.GET.get('imprimir') == '1'
+        return ctx
 
 
 class ConsultaOrdenView(View):

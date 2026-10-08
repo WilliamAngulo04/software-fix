@@ -11,7 +11,7 @@
     <div class="text-body-secondary">Ingresó el {{ orden.fecha_ingreso|date:"d/m/Y H:i" }} · Recibió {{ orden.recepcionista }}</div>
   </div>
   <div class="d-flex gap-2">
-    <a href="{% url 'orden_comprobante' orden.pk %}" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer"></i> Comprobante</a>
+    <a href="{% url 'orden_comprobante' orden.pk %}?imprimir=1" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer"></i> Comprobante (80 mm)</a>
     {% if puede_cobrar %}
       <a href="{% url 'venta_create' %}?orden={{ orden.pk }}" class="btn btn-success"><i class="bi bi-cash-coin"></i> Cobrar y entregar</a>
     {% endif %}

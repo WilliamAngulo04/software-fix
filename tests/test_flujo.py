@@ -264,11 +264,29 @@ class VistasTests(Base):
         venta = venta_services.registrar_venta(self.recepcion, 'efectivo', [(self.cargador, 2)])
         self.entrar(self.recepcion)
         r = self.client.get(reverse('venta_recibo', args=[venta.pk]))
-        self.assertContains(r, 'size: 80mm auto')
+        self.assertContains(r, 'css/ticket.css')
         self.assertContains(r, '2 x Cargador')
         self.assertContains(r, 'Taller Uno')
         self.assertNotContains(r, 'window.print(), 300')
         self.assertContains(self.client.get(r.request['PATH_INFO'] + '?imprimir=1'), 'window.print(), 300')
+
+    def test_comprobante_80mm(self):
+        self.entrar(self.recepcion)
+        r = self.client.get(reverse('orden_comprobante', args=[self.orden.pk]))
+        self.assertContains(r, 'css/ticket.css')
+        self.assertContains(r, 'COMPROBANTE DE RECEPCIÓN')
+        self.assertContains(r, self.orden.codigo_orden)
+        self.assertContains(r, '/consulta/')
+        self.assertNotContains(r, 'window.print(), 300')
+        r = self.client.get(reverse('orden_comprobante', args=[self.orden.pk]) + '?imprimir=1')
+        self.assertContains(r, 'window.print(), 300')
+
+    def test_hoja_de_estilos_80mm(self):
+        from django.contrib.staticfiles import finders
+        with open(finders.find('css/ticket.css'), encoding='utf-8') as css:
+            contenido = css.read()
+        self.assertIn('size: 80mm auto', contenido)
+        self.assertIn('max-width: 80mm', contenido)
 
     def test_formulario_en_espanol(self):
         self.entrar(self.recepcion)

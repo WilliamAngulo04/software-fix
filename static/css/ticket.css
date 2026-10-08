@@ -1,0 +1,31 @@
+/* Documentos para impresora térmica de 80 mm: ancho total 80 mm, área útil ~72 mm. */
+@page { size: 80mm auto; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+body {
+  width: 80mm;
+  max-width: 80mm;
+  padding: 4mm 4mm 6mm;
+  font: 12px/1.35 "Courier New", Courier, monospace;
+  overflow-wrap: anywhere;
+}
+.centro { text-align: center; }
+.titulo { font-size: 15px; font-weight: bold; }
+.grande { font-size: 15px; font-weight: bold; }
+.pequeno { font-size: 11px; }
+.linea { border-top: 1px dashed #000; margin: 2mm 0; }
+.fila { display: flex; justify-content: space-between; gap: 2mm; }
+.fila > :last-child { white-space: nowrap; text-align: right; }
+.detalle { font-size: 11px; padding-left: 4mm; }
+.etiqueta { font-weight: bold; margin-top: 1.5mm; }
+.firma { border-top: 1px solid #000; margin-top: 12mm; padding-top: 1mm; text-align: center; font-size: 11px; }
+.acciones { margin: 0 0 4mm; display: flex; gap: 2mm; }
+.acciones button, .acciones a {
+  flex: 1; padding: 2mm; font: inherit; text-align: center; cursor: pointer;
+  border: 1px solid #000; background: #fff; color: #000; text-decoration: none; border-radius: 2px;
+}
+@media screen {
+  html { background: #e9ecef; }
+  body { margin: 6mm auto; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
+}
+@media print { .acciones { display: none; } }

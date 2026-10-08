@@ -1,39 +1,10 @@
-{% load taller %}<!doctype html>
+{% load static taller %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Recibo #{{ venta.pk }} · {{ venta.establecimiento.nombre }}</title>
-  <style>
-    /* Recibo para impresora térmica de 80 mm: ancho total 80 mm, área útil ~72 mm. */
-    @page { size: 80mm auto; margin: 0; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
-    body {
-      width: 80mm;
-      max-width: 80mm;
-      padding: 4mm 4mm 6mm;
-      font: 12px/1.35 "Courier New", Courier, monospace;
-      overflow-wrap: anywhere;
-    }
-    .centro { text-align: center; }
-    .titulo { font-size: 15px; font-weight: bold; }
-    .grande { font-size: 15px; font-weight: bold; }
-    .linea { border-top: 1px dashed #000; margin: 2mm 0; }
-    .fila { display: flex; justify-content: space-between; gap: 2mm; }
-    .fila > :last-child { white-space: nowrap; text-align: right; }
-    .detalle { font-size: 11px; padding-left: 4mm; }
-    .acciones { margin: 0 0 4mm; display: flex; gap: 2mm; }
-    .acciones button, .acciones a {
-      flex: 1; padding: 2mm; font: inherit; text-align: center; cursor: pointer;
-      border: 1px solid #000; background: #fff; color: #000; text-decoration: none; border-radius: 2px;
-    }
-    @media screen {
-      html { background: #e9ecef; }
-      body { margin: 6mm auto; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
-    }
-    @media print { .acciones { display: none; } }
-  </style>
+  <link rel="stylesheet" href="{% static 'css/ticket.css' %}">
 </head>
 <body>
   <div class="acciones">
@@ -75,7 +46,7 @@
 
   <div class="centro">¡Gracias por su compra!</div>
   {% if venta.orden_servicio %}
-    <div class="centro" style="font-size: 11px; margin-top: 1mm;">Conserve este recibo como soporte de la garantía del servicio.</div>
+    <div class="centro pequeno" style="margin-top: 1mm;">Conserve este recibo como soporte de la garantía del servicio.</div>
   {% endif %}
 
   {% if autoimprimir %}
